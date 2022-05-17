@@ -1,0 +1,4 @@
+# Number of epoch per trial
+epochs_per_trial: 20
+learning_rate: 0.1
+optimizer: "SGD"
