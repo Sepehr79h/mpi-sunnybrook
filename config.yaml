@@ -1,4 +1,4 @@
-# Number of epoch per trial
-epochs_per_trial: 20
+num_epochs: 20
 learning_rate: 0.1
 optimizer: "SGD"
+loss_function: "cross_entropy"

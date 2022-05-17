@@ -1,9 +1,14 @@
-import global_vars as GLOBALS
 import sys
 import yaml
 import torch
+import time
+import torch.backends.cudnn as cudnn
+import global_vars as GLOBALS
+
 from argparse import Namespace as APNamespace, ArgumentParser
 from pathlib import Path
+
+from data import load_data
 
 
 def load_conf(conf_path):
@@ -44,21 +49,6 @@ def build_paths(args: APNamespace):
     load_conf(conf_path)
 
 
-def load_data():
-    # temporary sample data
-
-    batch_size = 2
-
-    train_x = torch.rand(50, 40, 64, 64)  # num images, num channels, img height, img width
-    train_y = torch.randint(1, 5, (50, 1))
-    train_x = torch.unsqueeze(train_x, dim=1)
-
-    train_dataset = torch.utils.data.TensorDataset(train_x, train_y)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-
-    return train_loader
-
-
 def initialize(network):
     print(f'GLOBALS.CONFIG: {GLOBALS.CONFIG}')
 
@@ -66,7 +56,46 @@ def initialize(network):
     print(f"Pytorch device is set to {device}")
     model = network.to(device)
 
+    if device == 'cuda':
+        model = torch.nn.DataParallel(model)
+        cudnn.benchmark = True
+
     optimizers = {"SGD": torch.optim.SGD}
     optimizer = optimizers[GLOBALS.CONFIG["optimizer"]](model.parameters(), lr=GLOBALS.CONFIG["learning_rate"])
 
-    return model, optimizer
+    loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
+    loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
+
+    train_loader, test_loader = load_data()
+
+    return model, optimizer, loss_function, train_loader, test_loader
+
+
+def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs):
+    for epoch in range(0, num_epochs, 1):
+
+        time_start = time.time()
+
+        for i_batch, data in enumerate(train_loader):
+            inputs, labels = data
+            # Clear gradients
+            optimizer.zero_grad()
+            # Forward propagation
+            outputs = model(inputs)
+            # Compute loss
+            loss = loss_function(outputs, labels)
+            # Compute Gradients and Step
+            loss.backward()
+            # Update parameters
+            optimizer.step()
+
+            _, predictions = torch.max(outputs, 1)
+
+        time_end = time.time()
+
+        print(
+            f"Epoch {epoch+1}/{num_epochs} Ended | " +
+            "Epoch Time: {:.3f}s | ".format(time_end - time_start) +
+            "Time Left: {:.3f}s | ".format(
+                (time_end - time_start) * (num_epochs - epoch)) +
+            "Train Loss: {:.3f}s ".format(loss.item()))

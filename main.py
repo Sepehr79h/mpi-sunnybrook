@@ -10,6 +10,10 @@ if __name__ == "__main__":
 
     network = CNNModel()
 
-    model, optimizer = initialize(network)
+    model, optimizer, loss_function, train_loader, test_loader = initialize(network)
 
     print('~~Initialization Complete. Beginning training~~')
+
+    train(model, optimizer, loss_function, train_loader, test_loader, GLOBALS.CONFIG["num_epochs"])
+
+    print('~~Training Complete. Generating Output Files~~')

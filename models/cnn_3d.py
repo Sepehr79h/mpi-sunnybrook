@@ -5,9 +5,9 @@ class CNNModel(nn.Module):
     def __init__(self, num_classes=4):
         super(CNNModel, self).__init__()
 
-        self.conv_layer1 = self._conv_layer_set(3, 32)
+        self.conv_layer1 = self._conv_layer_set(1, 32)
         self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.fc1 = nn.Linear(2 ** 3 * 64, 128)
+        self.fc1 = nn.Linear(14*14*8*64, 128)
         self.fc2 = nn.Linear(128, num_classes)
         self.relu = nn.LeakyReLU()
         self.batch = nn.BatchNorm1d(128)
