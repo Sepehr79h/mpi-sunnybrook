@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     network = CNNModel()
 
-    model, optimizer, loss_function, train_loader, test_loader = initialize(network)
+    model, optimizer, loss_function, train_loader, test_loader = initialize(args, network)
 
     print('~~Initialization Complete. Beginning training~~')
 

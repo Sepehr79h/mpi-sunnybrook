@@ -27,6 +27,10 @@ def get_args(parser: ArgumentParser):
     # print("MPI-Sunnybrook Train Args")
     # print("---------------------------------\n")
     parser.add_argument(
+        '--root', dest='root',
+        default='.', type=str,
+        help="Set root path of project: Default = '.'")
+    parser.add_argument(
         '--config', dest='config',
         default='config.yaml', type=str,
         help="Set configuration file path: Default = 'config.yaml'")
@@ -34,22 +38,44 @@ def get_args(parser: ArgumentParser):
         '--output', dest='output',
         default='train_output', type=str,
         help="Set output directory path: Default = 'train_output'")
+    parser.add_argument(
+        '--dicom_path', dest='dicom_path',
+        default='/mnt/8tb_hdd/dicom_store/Myocardial Perfusion Data', type=str,
+        help=f"Set dicom directory path: Default = '/mnt/8tb_hdd/dicom_store/Myocardial Perfusion Data/'")
+    parser.add_argument(
+        '--labels_path', dest='labels_path',
+        default='labels.xlsx', type=str,
+        help=f"Set labels file path: Default = 'labels.xlsx'")
+    parser.add_argument(
+        '--station_data_path', dest='station_data_path',
+        default='station_data', type=str,
+        help=f"Set station data directory path: Default = 'station_data'")
 
 
 def build_paths(args: APNamespace):
+    root_path = Path(args.root).expanduser()
     conf_path = Path(args.config).expanduser()
-    out_path = Path(args.output).expanduser()
+    out_path = root_path / Path(args.output).expanduser()
+    station_data_path = root_path / Path(args.station_data_path).expanduser()
 
     if not conf_path.exists():
         raise ValueError(f"Config path {conf_path} does not exist")
     if not out_path.exists():
         print(f"Output path {out_path} does not exist, building")
         out_path.mkdir(exist_ok=True, parents=True)
+    if not station_data_path.exists():
+        print(f"Station path {station_data_path} does not exist, building")
+        station_data_path.mkdir(exist_ok=True, parents=True)
 
     load_conf(conf_path)
 
 
-def initialize(network):
+def initialize(args: APNamespace, network):
+    root_path = Path(args.root).expanduser()
+    dicom_path = Path(args.dicom_path).expanduser()
+    labels_path = Path(args.labels_path).expanduser()
+    station_data_path = root_path / Path(args.station_data_path).expanduser()
+
     print(f'GLOBALS.CONFIG: {GLOBALS.CONFIG}')
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -66,7 +92,7 @@ def initialize(network):
     loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
     loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
 
-    train_loader, test_loader = load_data()
+    train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_name"])
 
     return model, optimizer, loss_function, train_loader, test_loader
 
@@ -78,6 +104,9 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
 
         for i_batch, data in enumerate(train_loader):
             inputs, labels = data
+            if torch.cuda.is_available():
+                inputs = inputs.cuda()
+                labels = labels.cuda()
             # Clear gradients
             optimizer.zero_grad()
             # Forward propagation
@@ -94,7 +123,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         time_end = time.time()
 
         print(
-            f"Epoch {epoch+1}/{num_epochs} Ended | " +
+            f"Epoch {epoch + 1}/{num_epochs} Ended | " +
             "Epoch Time: {:.3f}s | ".format(time_end - time_start) +
             "Time Left: {:.3f}s | ".format(
                 (time_end - time_start) * (num_epochs - epoch)) +
