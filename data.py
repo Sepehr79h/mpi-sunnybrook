@@ -1,8 +1,15 @@
+import re
+
 import torch
 import os
 import pydicom
 import pickle
 import time
+import pandas as pd
+import global_vars as GLOBALS
+
+from torch.utils.data.dataset import random_split
+from dataset import MPIDataset
 from tqdm import tqdm
 
 
@@ -35,6 +42,24 @@ def save_dicom_store(dicom_path, station_data_path, station_name):
     print("Dicom data saved. Time taken: {:.2f} s".format(time_end - time_start))
 
 
+def clean_data(raw_data):
+    filtered_data = raw_data.copy()
+    desired_image_patterns = [
+        "RST._U_TF_SD._SA",
+        "RST._S_TF_SD._SA",
+        "STR._U_TF_SD._SA",
+        "STR._S_TF_SD._SA"
+    ]
+    combined_pattern = "^(?=.*" + ")(?=.*".join(desired_image_patterns) + ")"
+
+    for study_id in raw_data.keys():
+        images = raw_data[study_id]["series_images"]
+        if not re.search(rf"{combined_pattern}", "".join(images.keys())):
+            filtered_data.pop(study_id)
+
+    return filtered_data
+
+
 def load_data(dicom_path, labels_path, station_data_path, station_name):
     print(f"Fetching dicom store from path: {dicom_path}")
     print(f"Fetching labels from path: {labels_path}")
@@ -44,11 +69,23 @@ def load_data(dicom_path, labels_path, station_data_path, station_name):
         save_dicom_store(dicom_path, station_data_path, station_name)
 
     with open(os.path.join(station_data_path, f"dicom_{station_name}.pkl"), 'rb') as f:
-        data = pickle.load(f)
+        raw_data = pickle.load(f)
 
-    print(f"Dicom data loaded successfully from station: {station_name}")
+    inputs = clean_data(raw_data)
+    labels = pd.read_excel(labels_path, sheet_name="Data")
 
-    breakpoint()
+    print(f"Data loaded successfully from station: {station_name}")
+
+    dataset = MPIDataset(inputs, labels)
+
+    train_split = int(len(dataset) * GLOBALS.CONFIG["train_split_percentage"])
+    test_split = len(dataset) - train_split
+    train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
+
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False)
+
+    return train_loader, test_loader
 
 
 def load_data_sample():
