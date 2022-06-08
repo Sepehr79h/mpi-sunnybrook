@@ -1,5 +1,6 @@
 import re
 
+import numpy as np
 import torch
 import os
 import pydicom
@@ -42,8 +43,8 @@ def save_dicom_store(dicom_path, station_data_path, station_name):
     print("Dicom data saved. Time taken: {:.2f} s".format(time_end - time_start))
 
 
-def clean_data(raw_data):
-    filtered_data = raw_data.copy()
+def process_data(raw_data):
+    processed_data = raw_data.copy()
     desired_image_patterns = [
         "RST._U_TF_SD._SA",
         "RST._S_TF_SD._SA",
@@ -53,11 +54,32 @@ def clean_data(raw_data):
     combined_pattern = "^(?=.*" + ")(?=.*".join(desired_image_patterns) + ")"
 
     for study_id in raw_data.keys():
-        images = raw_data[study_id]["series_images"]
-        if not re.search(rf"{combined_pattern}", "".join(images.keys())):
-            filtered_data.pop(study_id)
 
-    return filtered_data
+        images = raw_data[study_id]["series_images"]
+        patient_sex = raw_data[study_id]["PatientSex"]
+        patient_age = raw_data[study_id]["PatientAge"]
+
+        # Clean Data
+        if not re.search(rf"{combined_pattern}", "".join(images.keys())) or not patient_age or not patient_sex:
+            processed_data.pop(study_id)
+            continue
+
+        # Process Data
+        stacked_images = []
+        for pattern in desired_image_patterns:
+            stacked_images.append(images[re.search(pattern, "".join(images.keys())).group()])
+
+        processed_data[study_id]["series_images"] = np.vstack(stacked_images)
+        processed_data[study_id]["PatientAge"] = int(patient_age[:-1])
+        processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
+
+        # Padding
+
+        # Normalize Data
+
+        breakpoint()
+
+    return processed_data
 
 
 def load_data(dicom_path, labels_path, station_data_path, station_name):
@@ -71,7 +93,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_name):
     with open(os.path.join(station_data_path, f"dicom_{station_name}.pkl"), 'rb') as f:
         raw_data = pickle.load(f)
 
-    inputs = clean_data(raw_data)
+    inputs = process_data(raw_data)
     labels = pd.read_excel(labels_path, sheet_name="Data")
 
     print(f"Data loaded successfully from station: {station_name}")

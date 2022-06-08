@@ -103,6 +103,8 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         time_start = time.time()
 
         for i_batch, data in enumerate(train_loader):
+
+            breakpoint()
             inputs, labels = data
             if torch.cuda.is_available():
                 inputs = inputs.cuda()
