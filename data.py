@@ -43,6 +43,20 @@ def save_dicom_store(dicom_path, station_data_path, station_name):
     print("Dicom data saved. Time taken: {:.2f} s".format(time_end - time_start))
 
 
+def get_max_image_frames(raw_data, desired_image_patterns):
+    max_image_frames = {}
+    for study_id in raw_data.keys():
+        images = raw_data[study_id]["series_images"]
+        for pattern in desired_image_patterns:
+            match = re.search(pattern, "".join(images.keys()))
+            if match:
+                image_name = match.group()
+                curr_max = max_image_frames[pattern] if pattern in max_image_frames.keys() else 0
+                max_image_frames[pattern] = max(curr_max, len(images[image_name]))
+
+    return max_image_frames
+
+
 def process_data(raw_data):
     processed_data = raw_data.copy()
     desired_image_patterns = [
@@ -52,6 +66,7 @@ def process_data(raw_data):
         "STR._S_TF_SD._SA"
     ]
     combined_pattern = "^(?=.*" + ")(?=.*".join(desired_image_patterns) + ")"
+    max_image_frames = get_max_image_frames(raw_data, desired_image_patterns)
 
     for study_id in raw_data.keys():
 
@@ -67,17 +82,16 @@ def process_data(raw_data):
         # Process Data
         stacked_images = []
         for pattern in desired_image_patterns:
-            stacked_images.append(images[re.search(pattern, "".join(images.keys())).group()])
+            image_name = re.search(pattern, "".join(images.keys())).group()
+            pad_size = max_image_frames[pattern] - len(images[image_name])
+            padded_image = np.pad(images[image_name], ((0, pad_size), (0, 0), (0, 0)))
+            stacked_images.append(padded_image)
 
         processed_data[study_id]["series_images"] = np.vstack(stacked_images)
         processed_data[study_id]["PatientAge"] = int(patient_age[:-1])
         processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
 
-        # Padding
-
         # Normalize Data
-
-        breakpoint()
 
     return processed_data
 

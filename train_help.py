@@ -102,25 +102,28 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
 
         time_start = time.time()
 
-        for i_batch, data in enumerate(train_loader):
-
+        for sample in train_loader:
             breakpoint()
-            inputs, labels = data
-            if torch.cuda.is_available():
-                inputs = inputs.cuda()
-                labels = labels.cuda()
-            # Clear gradients
-            optimizer.zero_grad()
-            # Forward propagation
-            outputs = model(inputs)
-            # Compute loss
-            loss = loss_function(outputs, labels)
-            # Compute Gradients and Step
-            loss.backward()
-            # Update parameters
-            optimizer.step()
 
-            _, predictions = torch.max(outputs, 1)
+        # for i_batch, data in enumerate(train_loader):
+        #
+        #     breakpoint()
+        #     inputs, labels = data
+        #     if torch.cuda.is_available():
+        #         inputs = inputs.cuda()
+        #         labels = labels.cuda()
+        #     # Clear gradients
+        #     optimizer.zero_grad()
+        #     # Forward propagation
+        #     outputs = model(inputs)
+        #     # Compute loss
+        #     loss = loss_function(outputs, labels)
+        #     # Compute Gradients and Step
+        #     loss.backward()
+        #     # Update parameters
+        #     optimizer.step()
+        #
+        #     _, predictions = torch.max(outputs, 1)
 
         time_end = time.time()
 
