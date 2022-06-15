@@ -57,8 +57,8 @@ def get_max_image_frames(raw_data, desired_image_patterns):
     return max_image_frames
 
 
-def process_data(raw_data):
-    processed_data = raw_data.copy()
+def process_data(raw_inputs, labels):
+    processed_data = raw_inputs.copy()
     desired_image_patterns = [
         "RST._U_TF_SD._SA",
         "RST._S_TF_SD._SA",
@@ -66,16 +66,19 @@ def process_data(raw_data):
         "STR._S_TF_SD._SA"
     ]
     combined_pattern = "^(?=.*" + ")(?=.*".join(desired_image_patterns) + ")"
-    max_image_frames = get_max_image_frames(raw_data, desired_image_patterns)
+    max_image_frames = get_max_image_frames(raw_inputs, desired_image_patterns)
 
-    for study_id in raw_data.keys():
+    for study_id in raw_inputs.keys():
 
-        images = raw_data[study_id]["series_images"]
-        patient_sex = raw_data[study_id]["PatientSex"]
-        patient_age = raw_data[study_id]["PatientAge"]
+        images = raw_inputs[study_id]["series_images"]
+        patient_sex = raw_inputs[study_id]["PatientSex"]
+        patient_age = raw_inputs[study_id]["PatientAge"]
+        impression = labels.loc[labels['Study_ID'] == int(study_id)]["Impression"]
 
         # Clean Data
-        if not re.search(rf"{combined_pattern}", "".join(images.keys())) or not patient_age or not patient_sex:
+        if not re.search(rf"{combined_pattern}", "".join(images.keys())) \
+                or not patient_age or not patient_sex \
+                or impression.empty or (5 in impression.unique()):
             processed_data.pop(study_id)
             continue
 
@@ -107,8 +110,8 @@ def load_data(dicom_path, labels_path, station_data_path, station_name):
     with open(os.path.join(station_data_path, f"dicom_{station_name}.pkl"), 'rb') as f:
         raw_data = pickle.load(f)
 
-    inputs = process_data(raw_data)
     labels = pd.read_excel(labels_path, sheet_name="Data")
+    inputs = process_data(raw_data, labels)
 
     print(f"Data loaded successfully from station: {station_name}")
 
