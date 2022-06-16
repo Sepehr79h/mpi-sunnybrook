@@ -102,6 +102,34 @@ def get_accuracy(predictions, labels):
     return np.sum(predictions == labels) / predictions.shape[0]
 
 
+def evaluate(test_loader, model, loss_function):
+    running_loss = 0.0
+    running_accuracy = 0.0
+    for sample in test_loader:
+        model.eval()
+        images = sample["image"]
+        patient_age = sample["patient_age"]
+        patient_sex = sample["patient_sex"]
+        labels = sample["impression"]
+
+        if torch.cuda.is_available():
+            images = images.to(device="cuda", dtype=torch.float)
+            patient_age = patient_age.cuda()
+            patient_sex = patient_sex.cuda()
+            labels = labels.cuda()
+
+        outputs = model(images, (patient_sex, patient_age))
+        loss = loss_function(outputs, labels)
+
+        predictions = torch.argmax(outputs, 1)
+        accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
+
+        running_loss += loss.item() * images.shape[0]
+        running_accuracy += accuracy * images.shape[0]
+
+    return running_loss / len(test_loader.dataset), running_accuracy / len(test_loader.dataset)
+
+
 def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs):
     for epoch in range(0, num_epochs, 1):
 
@@ -111,7 +139,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         running_accuracy = 0.0
 
         for sample in train_loader:
-
+            model.train()
             images = sample["image"]
             patient_age = sample["patient_age"]
             patient_sex = sample["patient_sex"]
@@ -136,8 +164,9 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             running_loss += loss.item() * images.shape[0]
             running_accuracy += accuracy * images.shape[0]
 
-        epoch_loss = running_loss / len(train_loader.dataset)
-        epoch_accuracy = running_accuracy / len(train_loader.dataset)
+        epoch_train_loss = running_loss / len(train_loader.dataset)
+        epoch_train_accuracy = running_accuracy / len(train_loader.dataset)
+        epoch_test_loss, epoch_test_accuracy = evaluate(test_loader, model, loss_function)
 
         time_end = time.time()
 
@@ -146,5 +175,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "Epoch Time: {:.3f}s | ".format(time_end - time_start) +
             "Time Left: {:.3f}s | ".format(
                 (time_end - time_start) * (num_epochs - epoch)) +
-            "Train Loss: {:.6f} | ".format(epoch_loss) +
-            "Train Accuracy: {:.6f} ".format(epoch_accuracy))
+            "Train Loss: {:.6f} | ".format(epoch_train_loss) +
+            "Train Accuracy: {:.6f} | ".format(epoch_train_accuracy) +
+            "Test Loss: {:.6f} | ".format(epoch_test_loss) +
+            "Test Accuracy: {:.6f}  ".format(epoch_test_accuracy))

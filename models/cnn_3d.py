@@ -12,7 +12,7 @@ class CNNModel(nn.Module):
         self.fc2 = nn.Linear(128, num_classes)
         self.relu = nn.LeakyReLU()
         self.batch = nn.BatchNorm1d(128)
-        self.drop = nn.Dropout(p=0.15)
+        self.drop = nn.Dropout(p=0.5)
         self.softmax = nn.Softmax(dim=1)
 
     def _conv_layer_set(self, in_c, out_c):
@@ -29,10 +29,11 @@ class CNNModel(nn.Module):
         out = self.conv_layer1(out)
         out = self.conv_layer2(out)
         out = out.view(out.size(0), -1)
+        # out = self.drop(out)
         out = self.fc1(out)
         out = self.relu(out)
         out = self.batch(out)
-        # out = self.drop(out)
+        out = self.drop(out)
         out = self.fc2(out)
         #out = self.softmax(out)
         # out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
