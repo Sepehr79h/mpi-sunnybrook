@@ -4,6 +4,7 @@ import torch
 import time
 import torch.backends.cudnn as cudnn
 import global_vars as GLOBALS
+import numpy as np
 
 from argparse import Namespace as APNamespace, ArgumentParser
 from pathlib import Path
@@ -97,33 +98,46 @@ def initialize(args: APNamespace, network):
     return model, optimizer, loss_function, train_loader, test_loader
 
 
+def get_accuracy(predictions, labels):
+    return np.sum(predictions == labels) / predictions.shape[0]
+
+
 def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs):
     for epoch in range(0, num_epochs, 1):
 
         time_start = time.time()
 
-        for sample in train_loader:
-            breakpoint()
+        running_loss = 0.0
+        running_accuracy = 0.0
 
-        # for i_batch, data in enumerate(train_loader):
-        #
-        #     breakpoint()
-        #     inputs, labels = data
-        #     if torch.cuda.is_available():
-        #         inputs = inputs.cuda()
-        #         labels = labels.cuda()
-        #     # Clear gradients
-        #     optimizer.zero_grad()
-        #     # Forward propagation
-        #     outputs = model(inputs)
-        #     # Compute loss
-        #     loss = loss_function(outputs, labels)
-        #     # Compute Gradients and Step
-        #     loss.backward()
-        #     # Update parameters
-        #     optimizer.step()
-        #
-        #     _, predictions = torch.max(outputs, 1)
+        for sample in train_loader:
+
+            images = sample["image"]
+            patient_age = sample["patient_age"]
+            patient_sex = sample["patient_sex"]
+            labels = sample["impression"]
+
+            if torch.cuda.is_available():
+                images = images.to(device="cuda", dtype=torch.float)
+                patient_age = patient_age.cuda()
+                patient_sex = patient_sex.cuda()
+                labels = labels.cuda()
+
+            # Forward propagation
+            outputs = model(images, (patient_sex, patient_age))
+            loss = loss_function(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+            predictions = torch.argmax(outputs, 1)
+            accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
+
+            running_loss += loss.item() * images.shape[0]
+            running_accuracy += accuracy * images.shape[0]
+
+        epoch_loss = running_loss / len(train_loader.dataset)
+        epoch_accuracy = running_accuracy / len(train_loader.dataset)
 
         time_end = time.time()
 
@@ -132,4 +146,5 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "Epoch Time: {:.3f}s | ".format(time_end - time_start) +
             "Time Left: {:.3f}s | ".format(
                 (time_end - time_start) * (num_epochs - epoch)) +
-            "Train Loss: {:.3f}s ".format(loss.item()))
+            "Train Loss: {:.6f} | ".format(epoch_loss) +
+            "Train Accuracy: {:.6f} ".format(epoch_accuracy))

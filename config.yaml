@@ -2,7 +2,7 @@ num_epochs: 20
 learning_rate: 0.1
 optimizer: "SGD"
 loss_function: "cross_entropy"
-batch_size: 2
+batch_size: 3
 train_split_percentage: 0.9
 
 station_name: "DSPECT"

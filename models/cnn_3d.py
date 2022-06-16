@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -7,11 +8,12 @@ class CNNModel(nn.Module):
 
         self.conv_layer1 = self._conv_layer_set(1, 32)
         self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.fc1 = nn.Linear(14*14*8*64, 128)
+        self.fc1 = nn.Linear(14*14*59*64, 128)
         self.fc2 = nn.Linear(128, num_classes)
         self.relu = nn.LeakyReLU()
         self.batch = nn.BatchNorm1d(128)
         self.drop = nn.Dropout(p=0.15)
+        self.softmax = nn.Softmax(dim=1)
 
     def _conv_layer_set(self, in_c, out_c):
         conv_layer = nn.Sequential(
@@ -21,15 +23,18 @@ class CNNModel(nn.Module):
         )
         return conv_layer
 
-    def forward(self, x):
+    def forward(self, x_image, x_stats):
         # Set 1
-        out = self.conv_layer1(x)
+        out = torch.unsqueeze(x_image, dim=1)
+        out = self.conv_layer1(out)
         out = self.conv_layer2(out)
         out = out.view(out.size(0), -1)
         out = self.fc1(out)
         out = self.relu(out)
         out = self.batch(out)
-        out = self.drop(out)
+        # out = self.drop(out)
         out = self.fc2(out)
+        #out = self.softmax(out)
+        # out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
 
         return out
