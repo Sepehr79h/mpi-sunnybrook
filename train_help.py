@@ -5,6 +5,7 @@ import time
 import torch.backends.cudnn as cudnn
 import global_vars as GLOBALS
 import numpy as np
+import matplotlib.pyplot as plt
 
 from argparse import Namespace as APNamespace, ArgumentParser
 from pathlib import Path
@@ -24,9 +25,6 @@ def load_conf(conf_path):
 
 
 def get_args(parser: ArgumentParser):
-    # print("\n---------------------------------")
-    # print("MPI-Sunnybrook Train Args")
-    # print("---------------------------------\n")
     parser.add_argument(
         '--root', dest='root',
         default='.', type=str,
@@ -127,10 +125,14 @@ def evaluate(test_loader, model, loss_function):
         running_loss += loss.item() * images.shape[0]
         running_accuracy += accuracy * images.shape[0]
 
-    return running_loss / len(test_loader.dataset), running_accuracy / len(test_loader.dataset)
+    epoch_loss = running_loss / len(test_loader.dataset)
+    epoch_accuracy = running_accuracy / len(test_loader.dataset)
+
+    return epoch_loss, epoch_accuracy
 
 
 def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs):
+    train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     for epoch in range(0, num_epochs, 1):
 
         time_start = time.time()
@@ -168,6 +170,11 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         epoch_train_accuracy = running_accuracy / len(train_loader.dataset)
         epoch_test_loss, epoch_test_accuracy = evaluate(test_loader, model, loss_function)
 
+        train_loss_list.append(epoch_train_loss)
+        train_accuracy_list.append(epoch_train_accuracy)
+        test_loss_list.append(epoch_test_loss)
+        test_accuracy_list.append(epoch_test_accuracy)
+
         time_end = time.time()
 
         print(
@@ -179,3 +186,26 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "Train Accuracy: {:.6f} | ".format(epoch_train_accuracy) +
             "Test Loss: {:.6f} | ".format(epoch_test_loss) +
             "Test Accuracy: {:.6f}  ".format(epoch_test_accuracy))
+
+    train_stats = {
+        "train_loss_list": train_loss_list,
+        "train_accuracy_list": train_accuracy_list,
+        "test_loss_list": test_loss_list,
+        "test_accuracy_list": test_accuracy_list,
+        "num_epochs": num_epochs
+    }
+
+    return train_stats
+
+
+def generate_output_files(train_stats, out_path):
+    x = np.arange(0, train_stats["num_epochs"])
+    plt.plot(x, train_stats["train_loss_list"], label="train_loss")
+    plt.plot(x, train_stats["test_loss_list"], label="test_loss")
+    plt.xlabel("Epoch")
+    plt.savefig(f'{out_path}/train_curve.jpg', dpi=400)
+    plt.clf()
+    plt.plot(x, train_stats["train_accuracy_list"], label="train_accuracy")
+    plt.plot(x, train_stats["test_accuracy_list"], label="test_accuracy")
+    plt.xlabel("Epoch")
+    plt.savefig(f'{out_path}/test_curve.jpg', dpi=400)
