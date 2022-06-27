@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class CNNModel(nn.Module):
-    def __init__(self, num_classes=4):
+    def __init__(self, num_classes=4, num_covariates=2):
         super(CNNModel, self).__init__()
 
         self.conv_layer1 = self._conv_layer_set(1, 32)
@@ -14,6 +14,9 @@ class CNNModel(nn.Module):
         self.batch = nn.BatchNorm1d(128)
         self.drop = nn.Dropout(p=0.15)
         self.softmax = nn.Softmax(dim=1)
+        self.fc3 = nn.Linear(num_classes+num_covariates, num_classes)
+        #self.fc3 = nn.Linear(num_classes+num_covariates, 128)
+        #self.fc4 = nn.Linear(128, num_classes)
 
     def _conv_layer_set(self, in_c, out_c):
         conv_layer = nn.Sequential(
@@ -35,7 +38,13 @@ class CNNModel(nn.Module):
         out = self.batch(out)
         #out = self.drop(out)
         out = self.fc2(out)
+        #out = self.relu(out)
         #out = self.softmax(out)
-        # out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
+        out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
+        out = self.fc3(out)
+        #out = self.relu(out)
+        #out = self.batch(out)
+        #out = self.relu(out)
+        #out = self.fc4(out)
 
         return out

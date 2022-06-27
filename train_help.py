@@ -116,7 +116,7 @@ def evaluate(test_loader, model, loss_function):
             patient_sex = patient_sex.cuda()
             labels = labels.cuda()
 
-        outputs = model(images, (patient_sex, patient_age))
+        outputs = model(images, (patient_sex.float(), patient_age.float()))
         loss = loss_function(outputs, labels)
 
         predictions = torch.argmax(outputs, 1)
@@ -154,7 +154,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
                 labels = labels.cuda()
 
             # Forward propagation
-            outputs = model(images, (patient_sex, patient_age))
+            outputs = model(images, (patient_sex.float(), patient_age.float()))
             loss = loss_function(outputs, labels)
             loss.backward()
             optimizer.step()

@@ -91,10 +91,14 @@ def process_data(raw_inputs, labels):
             stacked_images.append(padded_image)
 
         processed_data[study_id]["series_images"] = np.vstack(stacked_images)
-        processed_data[study_id]["PatientAge"] = int(patient_age[:-1])
+        processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 100
         processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
 
         # Normalize Data
+        # v_min = processed_data[study_id]["series_images"].min(axis=(1, 2), keepdims=True)
+        # v_max = processed_data[study_id]["series_images"].max(axis=(1, 2), keepdims=True)
+        # processed_data[study_id]["series_images"] = (processed_data[study_id]["series_images"] - v_min)/(v_max - v_min)
+        # processed_data[study_id]["series_images"] = np.nan_to_num(processed_data[study_id]["series_images"])
 
     return processed_data
 

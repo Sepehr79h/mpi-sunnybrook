@@ -3,8 +3,8 @@ from models.cnn_3d import CNNModel
 from train_help import *
 
 if __name__ == "__main__":
-    torch.manual_seed(5)
-    np.random.seed(5)
+    torch.manual_seed(77)
+    np.random.seed(77)
 
     parser = ArgumentParser(description=__doc__)
     get_args(parser)
