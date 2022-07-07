@@ -46,84 +46,6 @@ def save_dicom_store(dicom_path, station_data_path, station_name, series_descrip
     print("Dicom data saved for station: {}. Time taken: {:.2f} s".format(station_name, time_end - time_start))
 
 
-# def get_max_image_frames(raw_data, desired_image_patterns):
-#     num_patterns = len(desired_image_patterns)
-#     max_image_frames, max_image_height, max_image_width = [0] * num_patterns, [0] * num_patterns, [0] * num_patterns
-#     for study_id in raw_data.keys():
-#         images = raw_data[study_id]["series_images"]
-#         for i in range(len(desired_image_patterns)):
-#             match = re.search(desired_image_patterns[i], "".join(images.keys()))
-#             if match:
-#                 image_name = match.group()
-#                 max_image_frames[i] = max(max_image_frames[i], images[image_name].shape[0])
-#                 max_image_width[i] = max(max_image_width[i], images[image_name].shape[1])
-#                 max_image_height[i] = max(max_image_height[i], images[image_name].shape[2])
-#
-#     return max_image_frames, max_image_height, max_image_width
-
-# max_image_frames = {}
-# for study_id in raw_data.keys():
-#     images = raw_data[study_id]["series_images"]
-#     for pattern in desired_image_patterns:
-#         match = re.search(pattern, "".join(images.keys()))
-#         if match:
-#             image_name = match.group()
-#             curr_max = max_image_frames[pattern] if pattern in max_image_frames.keys() else 0
-#             max_image_frames[pattern] = max(curr_max, len(images[image_name]))
-#
-# return max_image_frames
-
-
-# def process_data(raw_inputs, labels, desired_image_patterns):
-#     processed_data = raw_inputs.copy()
-#     # desired_image_patterns = [
-#     #     "RST._U_TF_SD._SA",
-#     #     "RST._S_TF_SD._SA",
-#     #     "STR._U_TF_SD._SA",
-#     #     "STR._S_TF_SD._SA"
-#     # ]
-#     combined_pattern = "^(?=.*" + ")(?=.*".join(desired_image_patterns) + ")"
-#
-#     # max_image_frames, max_image_width, max_image_height = get_max_image_frames(raw_inputs, desired_image_patterns)
-#
-#     for study_id in raw_inputs.keys():
-#
-#         images = raw_inputs[study_id]["series_images"]
-#         patient_sex = raw_inputs[study_id]["PatientSex"]
-#         patient_age = raw_inputs[study_id]["PatientAge"]
-#         impression = labels.loc[labels['Study_ID'] == int(study_id)]["Impression"]
-#
-#         # Clean Data
-#         if not re.search(rf"{combined_pattern}", "".join(images.keys())) \
-#                 or not patient_age or not patient_sex \
-#                 or impression.empty or (5 in impression.unique()):
-#             processed_data.pop(study_id)
-#             continue
-#
-#         # Process Data
-#         stacked_images = []
-#         for i in range(len(desired_image_patterns)):
-#             image_name = re.search(desired_image_patterns[i], "".join(images.keys())).group()
-#             pad_size_frames = max_image_frames[i] - images[image_name].shape[0]
-#             pad_size_width = max_image_width[i] - images[image_name].shape[1]
-#             pad_size_height = max_image_height[i] - images[image_name].shape[2]
-#             padded_image = np.pad(images[image_name], ((0, pad_size_frames), (0, pad_size_width), (0, pad_size_height)))
-#             stacked_images.append(padded_image)
-#
-#         processed_data[study_id]["series_images"] = np.vstack(stacked_images)
-#         processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 100
-#         processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
-#
-#         # Normalize Data
-#         # v_min = processed_data[study_id]["series_images"].min(axis=(1, 2), keepdims=True)
-#         # v_max = processed_data[study_id]["series_images"].max(axis=(1, 2), keepdims=True)
-#         # processed_data[study_id]["series_images"] = (processed_data[study_id]["series_images"] - v_min)/(v_max - v_min)
-#         # processed_data[study_id]["series_images"] = np.nan_to_num(processed_data[study_id]["series_images"])
-#
-#     breakpoint()
-#
-#     return processed_data
-
 def get_max_image_frames(station_data_dict, station_info):
     num_patterns = len(next(iter(station_info.values())))
     max_image_frames, max_image_height, max_image_width = [0] * num_patterns, [0] * num_patterns, [0] * num_patterns
@@ -167,7 +89,7 @@ def process_data(station_data_dict, labels, station_info):
             # Clean Data
             if not re.search(rf"{combined_pattern}", "".join(images.keys())) \
                     or not patient_age or not patient_sex \
-                    or impression.empty or (5 in impression.unique()):
+                    or impression.empty or set() == {1, 2, 3, 4}.intersection(set(impression.unique())):
                 processed_data.pop(study_id)
                 continue
 
@@ -207,15 +129,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
             station_data_raw = pickle.load(f)
             station_data_dict[station_name] = station_data_raw
 
-        # station_data_processed = process_data(station_data_raw, labels, station_info[station_name])
-        # inputs.update(station_data_processed)
-
     inputs = process_data(station_data_dict, labels, station_info)
-
-    # for station_name in station_info.keys():
-    #     with open(os.path.join(station_data_path, f"dicom_{station_name}.pkl"), 'rb') as f:
-    #         raw_data = pickle.load(f)
-    #     breakpoint()
 
     print("Data loaded successfully.")
 

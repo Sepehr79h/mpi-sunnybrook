@@ -1,9 +1,16 @@
 num_epochs: 100
-learning_rate: 0.01
+learning_rate: 0.1
 optimizer: "SGD"
 loss_function: "cross_entropy"
 batch_size: 3
-train_split_percentage: 0.75
+train_split_percentage: 0.8
+
+#station_info:
+#  DSPECT:
+#    - RST._U_TF_SD._SA
+#    - RST._S_TF_SD._SA
+#    - STR._U_TF_SD._SA
+#    - STR._S_TF_SD._SA
 
 station_info:
   BrightView:
