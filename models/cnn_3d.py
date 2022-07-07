@@ -8,7 +8,9 @@ class CNNModel(nn.Module):
 
         self.conv_layer1 = self._conv_layer_set(1, 32)
         self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.fc1 = nn.Linear(14*14*59*64, 128)
+        # self.fc1 = nn.Linear(14 * 14 * 28 * 64, 128)
+        # self.fc1 = nn.Linear(14*14*59*64, 128)
+        self.fc1 = nn.Linear(15 * 15 * 19 * 64, 128)
         self.fc2 = nn.Linear(128, num_classes)
         self.relu = nn.LeakyReLU()
         self.batch = nn.BatchNorm1d(128)
@@ -31,6 +33,7 @@ class CNNModel(nn.Module):
         out = torch.unsqueeze(x_image, dim=1)
         out = self.conv_layer1(out)
         out = self.conv_layer2(out)
+        #breakpoint()
         out = out.view(out.size(0), -1)
         # out = self.drop(out)
         out = self.fc1(out)

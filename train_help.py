@@ -91,7 +91,7 @@ def initialize(args: APNamespace, network):
     loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
     loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
 
-    train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_name"])
+    train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
 
     return model, optimizer, loss_function, train_loader, test_loader
 

@@ -1,8 +1,18 @@
 num_epochs: 100
-learning_rate: 0.001
+learning_rate: 0.01
 optimizer: "SGD"
 loss_function: "cross_entropy"
 batch_size: 3
 train_split_percentage: 0.75
 
-station_name: "DSPECT"
+station_info:
+  BrightView:
+    - SAX-STR
+    - SAX-RST
+  PHLPSSCT001AG00:
+    - SAX-AST-AC-STR
+    - SAX-AST-AC-RST
+  P3000XP328:
+    - SAX-STR
+    - SAX-RST
+
