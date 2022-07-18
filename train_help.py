@@ -1,3 +1,4 @@
+import os
 import sys
 import yaml
 import torch
@@ -116,7 +117,9 @@ def evaluate(test_loader, model, loss_function):
             patient_sex = patient_sex.cuda()
             labels = labels.cuda()
 
-        outputs = model(images, (patient_sex.float(), patient_age.float()))
+        # outputs = model(images, (patient_sex.float(), patient_age.float()))
+        images = torch.unsqueeze(images, dim=1)
+        outputs = model(images)
         loss = loss_function(outputs, labels)
 
         predictions = torch.argmax(outputs, 1)
@@ -131,8 +134,9 @@ def evaluate(test_loader, model, loss_function):
     return epoch_loss, epoch_accuracy
 
 
-def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs):
+def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path):
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
+    train_stats = {}
     for epoch in range(0, num_epochs, 1):
 
         time_start = time.time()
@@ -154,7 +158,8 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
                 labels = labels.cuda()
 
             # Forward propagation
-            outputs = model(images, (patient_sex.float(), patient_age.float()))
+            images = torch.unsqueeze(images, dim=1)
+            outputs = model(images)
             loss = loss_function(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -187,25 +192,14 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "Test Loss: {:.6f} | ".format(epoch_test_loss) +
             "Test Accuracy: {:.6f}  ".format(epoch_test_accuracy))
 
-    train_stats = {
-        "train_loss_list": train_loss_list,
-        "train_accuracy_list": train_accuracy_list,
-        "test_loss_list": test_loss_list,
-        "test_accuracy_list": test_accuracy_list,
-        "num_epochs": num_epochs
-    }
+        train_stats = {
+            "train_loss_list": train_loss_list,
+            "train_accuracy_list": train_accuracy_list,
+            "test_loss_list": test_loss_list,
+            "test_accuracy_list": test_accuracy_list,
+            "num_epochs": epoch + 1
+        }
+        torch.save(train_stats, os.path.join(out_path, 'train_stats.pkl'))
 
     return train_stats
 
-
-def generate_output_files(train_stats, out_path):
-    x = np.arange(0, train_stats["num_epochs"])
-    plt.plot(x, train_stats["train_loss_list"], label="train_loss")
-    plt.plot(x, train_stats["test_loss_list"], label="test_loss")
-    plt.xlabel("Epoch")
-    plt.savefig(f'{out_path}/train_curve.jpg', dpi=400)
-    plt.clf()
-    plt.plot(x, train_stats["train_accuracy_list"], label="train_accuracy")
-    plt.plot(x, train_stats["test_accuracy_list"], label="test_accuracy")
-    plt.xlabel("Epoch")
-    plt.savefig(f'{out_path}/test_curve.jpg', dpi=400)

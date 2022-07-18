@@ -1,8 +1,8 @@
-num_epochs: 100
+num_epochs: 200
 learning_rate: 0.1
 optimizer: "SGD"
 loss_function: "cross_entropy"
-batch_size: 3
+batch_size: 32
 train_split_percentage: 0.8
 
 #station_info:

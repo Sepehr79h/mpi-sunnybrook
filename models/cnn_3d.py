@@ -28,10 +28,9 @@ class CNNModel(nn.Module):
         )
         return conv_layer
 
-    def forward(self, x_image, x_stats):
+    def forward(self, x_image, x_stats=None):
         # Set 1
-        out = torch.unsqueeze(x_image, dim=1)
-        out = self.conv_layer1(out)
+        out = self.conv_layer1(x_image)
         out = self.conv_layer2(out)
         #breakpoint()
         out = out.view(out.size(0), -1)
@@ -43,8 +42,10 @@ class CNNModel(nn.Module):
         out = self.fc2(out)
         #out = self.relu(out)
         #out = self.softmax(out)
-        out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
-        out = self.fc3(out)
+
+        #out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
+        #out = self.fc3(out)
+
         #out = self.relu(out)
         #out = self.batch(out)
         #out = self.relu(out)
