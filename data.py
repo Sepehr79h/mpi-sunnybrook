@@ -12,6 +12,7 @@ import global_vars as GLOBALS
 from torch.utils.data.dataset import random_split
 from dataset import MPIDataset
 from tqdm import tqdm
+from data_analysis.visualize import plot_3d
 
 
 def save_dicom_store(dicom_path, station_data_path, station_name, series_descriptions):
@@ -107,6 +108,12 @@ def process_data(station_data_dict, labels, station_info):
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
             processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 100
             processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
+
+            # Normalize Data
+            v_min = processed_data[study_id]["series_images"].min(axis=(1, 2), keepdims=True)
+            v_max = processed_data[study_id]["series_images"].max(axis=(1, 2), keepdims=True)
+            processed_data[study_id]["series_images"] = (processed_data[study_id]["series_images"] - v_min)/(v_max - v_min)
+            processed_data[study_id]["series_images"] = np.nan_to_num(processed_data[study_id]["series_images"])
 
         inputs.update(processed_data)
 

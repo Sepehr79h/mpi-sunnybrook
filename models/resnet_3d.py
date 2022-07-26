@@ -150,7 +150,8 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.2)
+        self.dropout_fc = nn.Dropout(p=0.5)
 
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -204,14 +205,17 @@ class ResNet(nn.Module):
             x = self.maxpool(x)
 
         x = self.layer1(x)
+        #x = self.dropout(x)
         x = self.layer2(x)
+        #x = self.dropout(x)
         x = self.layer3(x)
+        #x = self.dropout(x)
         x = self.layer4(x)
 
         x = self.avgpool(x)
 
         x = x.view(x.size(0), -1)
-        x = self.dropout(x)
+        #x = self.dropout_fc(x)
         x = self.fc(x)
 
         return x
@@ -221,7 +225,7 @@ def generate_model(model_depth, **kwargs):
     assert model_depth in [10, 18, 34, 50, 101, 152, 200]
 
     if model_depth == 10:
-        model = ResNet(BasicBlock, [1, 1, 1, 1], get_inplanes(), **kwargs)
+        model = ResNet(BasicBlock, [1, 1, 1, 1], [64, 128, 256, 512], **kwargs)
     elif model_depth == 18:
         model = ResNet(BasicBlock, [2, 2, 2, 2], get_inplanes(), **kwargs)
     elif model_depth == 34:

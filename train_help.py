@@ -102,36 +102,39 @@ def get_accuracy(predictions, labels):
 
 
 def evaluate(test_loader, model, loss_function):
-    running_loss = 0.0
-    running_accuracy = 0.0
-    for sample in test_loader:
-        model.eval()
-        images = sample["image"]
-        patient_age = sample["patient_age"]
-        patient_sex = sample["patient_sex"]
-        labels = sample["impression"]
+    with torch.no_grad():
+        running_loss = 0.0
+        running_accuracy = 0.0
+        for sample in test_loader:
+            model.eval()
+            images = sample["image"]
+            patient_age = sample["patient_age"]
+            patient_sex = sample["patient_sex"]
+            labels = sample["impression"]
 
-        if torch.cuda.is_available():
-            images = images.to(device="cuda", dtype=torch.float)
-            patient_age = patient_age.cuda()
-            patient_sex = patient_sex.cuda()
-            labels = labels.cuda()
+            if torch.cuda.is_available():
+                images = images.to(device="cuda", dtype=torch.float)
+                patient_age = patient_age.cuda()
+                patient_sex = patient_sex.cuda()
+                labels = labels.cuda()
 
-        # outputs = model(images, (patient_sex.float(), patient_age.float()))
-        images = torch.unsqueeze(images, dim=1)
-        outputs = model(images)
-        loss = loss_function(outputs, labels)
+            # outputs = model(images, (patient_sex.float(), patient_age.float()))
+            images = torch.unsqueeze(images, dim=1)
+            outputs = model(images)
+            loss = loss_function(outputs, labels)
 
-        predictions = torch.argmax(outputs, 1)
-        accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
+            predictions = torch.argmax(outputs, 1)
+            accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
 
-        running_loss += loss.item() * images.shape[0]
-        running_accuracy += accuracy * images.shape[0]
+            #print(loss,accuracy)
 
-    epoch_loss = running_loss / len(test_loader.dataset)
-    epoch_accuracy = running_accuracy / len(test_loader.dataset)
+            running_loss += loss.item() * images.shape[0]
+            running_accuracy += accuracy * images.shape[0]
 
-    return epoch_loss, epoch_accuracy
+        epoch_loss = running_loss / len(test_loader.dataset)
+        epoch_accuracy = running_accuracy / len(test_loader.dataset)
+
+        return epoch_loss, epoch_accuracy
 
 
 def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path):

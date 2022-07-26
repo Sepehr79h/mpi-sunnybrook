@@ -13,6 +13,7 @@ def generate_output_files(train_stats, out_path):
     plt.ylabel("Loss")
     plt.legend()
     plt.savefig(f'{out_path}/loss.jpg', dpi=400)
+    plt.show()
     plt.clf()
     plt.plot(x, train_stats["train_accuracy_list"], label="train")
     plt.plot(x, train_stats["test_accuracy_list"], label="test")
@@ -20,6 +21,7 @@ def generate_output_files(train_stats, out_path):
     plt.ylabel("Accuracy")
     plt.legend()
     plt.savefig(f'{out_path}/accuracy.jpg', dpi=400)
+    plt.show()
 
 
 if __name__ == "__main__":
