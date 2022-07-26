@@ -11,9 +11,7 @@ import global_vars as GLOBALS
 
 from torch.utils.data.dataset import random_split
 from dataset import MPIDataset
-from dataset import MinMaxNormalize
 from tqdm import tqdm
-from torchvision import transforms
 from data_analysis.visualize import plot_3d
 
 
@@ -74,11 +72,6 @@ def get_max_image_frames(station_data_dict, station_info):
 def process_data(station_data_dict, labels, station_info):
     inputs = {}
     max_image_frames, max_image_width, max_image_height = get_max_image_frames(station_data_dict, station_info)
-    data_stats = {
-        "min_pix": 0,
-        "max_pix": 0,
-        "max_age": 0
-    }
 
     for station_name in station_info.keys():
         raw_inputs = station_data_dict[station_name]
@@ -113,16 +106,18 @@ def process_data(station_data_dict, labels, station_info):
                 stacked_images.append(padded_image)
 
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
-            processed_data[study_id]["PatientAge"] = int(patient_age[:-1])
+            processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 100
             processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
 
-            data_stats["max_pix"] = np.maximum(data_stats["max_pix"], np.max(processed_data[study_id]["series_images"], axis=0))
-            data_stats["min_pix"] = np.minimum(data_stats["min_pix"], np.min(processed_data[study_id]["series_images"], axis=0))
-            data_stats["max_age"] = max(data_stats["max_age"], processed_data[study_id]["PatientAge"])
+            # Normalize Data
+            v_min = processed_data[study_id]["series_images"].min(axis=(1, 2), keepdims=True)
+            v_max = processed_data[study_id]["series_images"].max(axis=(1, 2), keepdims=True)
+            processed_data[study_id]["series_images"] = (processed_data[study_id]["series_images"] - v_min)/(v_max - v_min)
+            processed_data[study_id]["series_images"] = np.nan_to_num(processed_data[study_id]["series_images"])
 
         inputs.update(processed_data)
 
-    return inputs, data_stats
+    return inputs
 
 
 def load_data(dicom_path, labels_path, station_data_path, station_info):
@@ -141,14 +136,11 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
             station_data_raw = pickle.load(f)
             station_data_dict[station_name] = station_data_raw
 
-    inputs, data_stats = process_data(station_data_dict, labels, station_info)
+    inputs = process_data(station_data_dict, labels, station_info)
 
     print("Data loaded successfully.")
 
-    transform = transforms.Compose(
-        [MinMaxNormalize(data_stats["min_pix"], data_stats["max_pix"], data_stats["max_age"])])
-
-    dataset = MPIDataset(inputs, labels, transform=transform)
+    dataset = MPIDataset(inputs, labels)
 
     train_split = int(len(dataset) * GLOBALS.CONFIG["train_split_percentage"])
     test_split = len(dataset) - train_split

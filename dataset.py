@@ -22,21 +22,7 @@ class MPIDataset(Dataset):
             "patient_sex": sample_input["PatientSex"],
             "patient_age": sample_input["PatientAge"],
             "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0] - 1
+            # **self.labels[int(study_id)]  # unpack all labels into this sample
         }
 
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
-
-
-class MinMaxNormalize(object):
-    def __init__(self, min_pixel_value, max_pixel_value, max_age):
-        self.min_pixel_value = min_pixel_value
-        self.max_pixel_value = max_pixel_value
-        self.max_age = max_age
-
-    def __call__(self, sample):
-        sample["image"] = (sample["image"] - self.min_pixel_value) / (self.max_pixel_value - self.min_pixel_value)
-        sample["patient_age"] /= self.max_age
         return sample
