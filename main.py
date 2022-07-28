@@ -13,7 +13,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     output_path = build_paths(args)
 
-    # network = CNNModel()
+    #network = CNNModel()
     network = generate_model(10, n_input_channels=1, n_classes=4)
 
     model, optimizer, loss_function, train_loader, test_loader = initialize(args, network)

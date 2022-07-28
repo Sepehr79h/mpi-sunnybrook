@@ -86,7 +86,8 @@ def initialize(args: APNamespace, network):
         model = torch.nn.DataParallel(model)
         cudnn.benchmark = True
 
-    optimizers = {"SGD": torch.optim.SGD}
+    optimizers = {"SGD": torch.optim.SGD,
+                  "Adam": torch.optim.Adam}
     optimizer = optimizers[GLOBALS.CONFIG["optimizer"]](model.parameters(), lr=GLOBALS.CONFIG["learning_rate"])
 
     loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
@@ -118,8 +119,9 @@ def evaluate(test_loader, model, loss_function):
                 patient_sex = patient_sex.cuda()
                 labels = labels.cuda()
 
-            # outputs = model(images, (patient_sex.float(), patient_age.float()))
+
             images = torch.unsqueeze(images, dim=1)
+            #outputs = model(images, (patient_sex.float(), patient_age.float()))
             outputs = model(images)
             loss = loss_function(outputs, labels)
 
@@ -148,11 +150,13 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         running_accuracy = 0.0
 
         for sample in train_loader:
+            #breakpoint()
             model.train()
             images = sample["image"]
             patient_age = sample["patient_age"]
             patient_sex = sample["patient_sex"]
             labels = sample["impression"]
+            #breakpoint()
 
             if torch.cuda.is_available():
                 images = images.to(device="cuda", dtype=torch.float)
@@ -162,6 +166,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
 
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
+            #outputs = model(images, (patient_sex.float(), patient_age.float()))
             outputs = model(images)
             loss = loss_function(outputs, labels)
             loss.backward()
@@ -173,6 +178,8 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
 
             running_loss += loss.item() * images.shape[0]
             running_accuracy += accuracy * images.shape[0]
+
+            #breakpoint()
 
         epoch_train_loss = running_loss / len(train_loader.dataset)
         epoch_train_accuracy = running_accuracy / len(train_loader.dataset)

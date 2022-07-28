@@ -43,8 +43,8 @@ class CNNModel(nn.Module):
         #out = self.relu(out)
         #out = self.softmax(out)
 
-        #out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
-        #out = self.fc3(out)
+        out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
+        out = self.fc3(out)
 
         #out = self.relu(out)
         #out = self.batch(out)

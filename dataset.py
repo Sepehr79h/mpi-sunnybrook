@@ -2,7 +2,7 @@ import re
 
 import numpy as np
 from torch.utils.data import Dataset
-
+from data_analysis.visualize import plot_3d
 
 class MPIDataset(Dataset):
     def __init__(self, inputs, labels, transform=None):
@@ -14,8 +14,12 @@ class MPIDataset(Dataset):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        study_id = list(self.inputs.keys())[idx]
-        sample_input = self.inputs[study_id]
+        #breakpoint()
+        study_id = self.labels.iloc[[idx]]["Study_ID"].iloc[0]
+        sample_input = self.inputs[str(study_id)]
+        #study_id = list(self.inputs.keys())[idx]
+        #sample_input = self.inputs[study_id]
+        #breakpoint()
 
         sample = {
             "image": sample_input["series_images"].astype(np.float),
@@ -25,7 +29,9 @@ class MPIDataset(Dataset):
         }
 
         if self.transform:
-            sample = self.transform(sample)
+            # breakpoint()
+            # plot_3d(sample["image"])
+            sample["image"] = self.transform(sample["image"])
 
         return sample
 
@@ -38,5 +44,6 @@ class MinMaxNormalize(object):
 
     def __call__(self, sample):
         sample["image"] = (sample["image"] - self.min_pixel_value) / (self.max_pixel_value - self.min_pixel_value)
+        sample["image"] = np.nan_to_num(sample["image"])
         sample["patient_age"] /= self.max_age
         return sample

@@ -1,3 +1,4 @@
+import matplotlib
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
 from skimage import measure
@@ -5,6 +6,7 @@ import matplotlib.pylab as plt
 
 
 def plot_3d(image, threshold=0):
+    #matplotlib.use('GTK3Agg')
     p = image.transpose(2,1,0)
     verts, faces, normals, values = measure.marching_cubes(p, threshold)
     fig = plt.figure(figsize=(10, 10))

@@ -1,25 +1,28 @@
-num_epochs: 100
-learning_rate: 0.01
+num_epochs: 300
+learning_rate: 0.001
 optimizer: "SGD"
 loss_function: "cross_entropy"
-batch_size: 1
+batch_size: 64
 train_split_percentage: 0.8
-
-station_info:
-  DSPECT:
-    - RST._U_TF_SD._SA
-    - RST._S_TF_SD._SA
-    - STR._U_TF_SD._SA
-    - STR._S_TF_SD._SA
+classes: [1, 3]
+max_images_per_class: 1000
+split_type: "balanced"
 
 #station_info:
-#  BrightView:
-#    - SAX-STR
-#    - SAX-RST
-#  PHLPSSCT001AG00:
-#    - SAX-AST-AC-STR
-#    - SAX-AST-AC-RST
-#  P3000XP328:
-#    - SAX-STR
-#    - SAX-RST
+#  DSPECT:
+#    - RST._U_TF_SD._SA
+#    - RST._S_TF_SD._SA
+#    - STR._U_TF_SD._SA
+#    - STR._S_TF_SD._SA
+
+station_info:
+  BrightView:
+    - SAX-STR
+    - SAX-RST
+  PHLPSSCT001AG00:
+    - SAX-AST-AC-STR
+    - SAX-AST-AC-RST
+  P3000XP328:
+    - SAX-STR
+    - SAX-RST
 
