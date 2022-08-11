@@ -1,5 +1,6 @@
 from models.cnn_3d import CNNModel
 from models.resnet_3d import generate_model
+#from models.densenet_3d import generate_model
 from data_analysis.generate_plots import generate_output_files
 
 from train_help import *
@@ -15,6 +16,7 @@ if __name__ == "__main__":
 
     #network = CNNModel()
     network = generate_model(10, n_input_channels=1, n_classes=4)
+    #network = generate_model(121, n_input_channels=1, num_classes=4)
 
     model, optimizer, loss_function, train_loader, test_loader = initialize(args, network)
 
