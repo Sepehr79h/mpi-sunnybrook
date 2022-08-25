@@ -10,15 +10,16 @@ class CNNModel(nn.Module):
         self.conv_layer2 = self._conv_layer_set(32, 64)
         # self.fc1 = nn.Linear(14 * 14 * 28 * 64, 128)
         # self.fc1 = nn.Linear(14*14*59*64, 128)
-        self.fc1 = nn.Linear(15 * 15 * 19 * 64, 128)
+        # self.fc1 = nn.Linear(15 * 15 * 19 * 64, 128)
+        self.fc1 = nn.Linear(15 * 19 * 15 * 64, 128)
         self.fc2 = nn.Linear(128, num_classes)
         self.relu = nn.LeakyReLU()
         self.batch = nn.BatchNorm1d(128)
         self.drop = nn.Dropout(p=0.15)
         self.softmax = nn.Softmax(dim=1)
-        self.fc3 = nn.Linear(num_classes+num_covariates, num_classes)
-        #self.fc3 = nn.Linear(num_classes+num_covariates, 128)
-        #self.fc4 = nn.Linear(128, num_classes)
+        self.fc3 = nn.Linear(num_classes + num_covariates, num_classes)
+        # self.fc3 = nn.Linear(num_classes+num_covariates, 128)
+        # self.fc4 = nn.Linear(128, num_classes)
 
     def _conv_layer_set(self, in_c, out_c):
         conv_layer = nn.Sequential(
@@ -28,27 +29,46 @@ class CNNModel(nn.Module):
         )
         return conv_layer
 
-    def forward(self, x_image, x_stats=None):
+    def forward(self, x_image, x_stats=None, image_list=None):
         # Set 1
         out = self.conv_layer1(x_image)
         out = self.conv_layer2(out)
-        #breakpoint()
+        # breakpoint()
         out = out.view(out.size(0), -1)
         # out = self.drop(out)
         out = self.fc1(out)
         out = self.relu(out)
-        out = self.batch(out)
-        #out = self.drop(out)
+        # out = self.batch(out)
+        # out = self.drop(out)
         out = self.fc2(out)
-        #out = self.relu(out)
-        #out = self.softmax(out)
+        # out = self.relu(out)
+        # out = self.softmax(out)
+        # breakpoint()
+        # out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
+        # breakpoint()
+        # out = self.fc3(out)
+        # breakpoint()
+        #
+        # # out = self.relu(out)
+        # # out = self.batch(out)
+        # # out = self.relu(out)
+        # # out = self.fc4(out)
+        #
+        # breakpoint()
 
-        out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
-        out = self.fc3(out)
+        # --------------------------------------------------
 
-        #out = self.relu(out)
-        #out = self.batch(out)
-        #out = self.relu(out)
-        #out = self.fc4(out)
+        # for image in image_list:
+        #     image = torch.unsqueeze(image, dim=1)
+        #     out = self.conv_layer1(image)
+        #     out = self.conv_layer2(out)
+        #     out = out.view(out.size(0), -1)
+        #     out = self.fc1(out)
+        #     out = self.relu(out)
+        #     out = self.fc2(out)
+        #
+        #     breakpoint()
+        #
+        #     out = torch.cat((out, torch.stack(x_stats, dim=1)), dim=1)
 
         return out

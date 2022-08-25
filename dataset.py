@@ -19,14 +19,16 @@ class MPIDataset(Dataset):
         sample_input = self.inputs[str(study_id)]
         #study_id = list(self.inputs.keys())[idx]
         #sample_input = self.inputs[study_id]
-        #breakpoint()
 
         sample = {
-            "image": sample_input["series_images"].astype(np.float),
+            "image": sample_input["series_images"],
+            "image_list": sample_input["image_list"],
             "patient_sex": sample_input["PatientSex"],
             "patient_age": sample_input["PatientAge"],
-            "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0] - 1
+            "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0]
         }
+
+        # breakpoint()
 
         if self.transform:
             # breakpoint()

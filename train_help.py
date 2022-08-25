@@ -1,12 +1,17 @@
 import os
 import sys
+from typing import Any
+
 import yaml
 import torch
 import time
 import torch.backends.cudnn as cudnn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 import global_vars as GLOBALS
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 from argparse import Namespace as APNamespace, ArgumentParser
 from pathlib import Path
@@ -86,16 +91,20 @@ def initialize(args: APNamespace, network):
         model = torch.nn.DataParallel(model)
         cudnn.benchmark = True
 
-    optimizers = {"SGD": torch.optim.SGD,
-                  "Adam": torch.optim.Adam}
-    optimizer = optimizers[GLOBALS.CONFIG["optimizer"]](model.parameters(), lr=GLOBALS.CONFIG["learning_rate"])
+    if GLOBALS.CONFIG["optimizer"] == "SGD":
+        optimizer = torch.optim.SGD(model.parameters(), lr=GLOBALS.CONFIG["learning_rate"],
+                                    momentum=GLOBALS.CONFIG["momentum"], weight_decay=GLOBALS.CONFIG["weight_decay"], dampening=GLOBALS.CONFIG["dampening"])
+    elif GLOBALS.CONFIG["optimizer"] == "Adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=GLOBALS.CONFIG["learning_rate"])
+
+    scheduler = ReduceLROnPlateau(optimizer, 'min')
 
     loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
     loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
 
     train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
 
-    return model, optimizer, loss_function, train_loader, test_loader
+    return model, optimizer, scheduler, loss_function, train_loader, test_loader
 
 
 def get_accuracy(predictions, labels):
@@ -109,26 +118,34 @@ def evaluate(test_loader, model, loss_function):
         for sample in test_loader:
             model.eval()
             images = sample["image"]
+            image_list = sample["image_list"]
             patient_age = sample["patient_age"]
             patient_sex = sample["patient_sex"]
             labels = sample["impression"]
 
             if torch.cuda.is_available():
                 images = images.to(device="cuda", dtype=torch.float)
+                for i in range(0, len(image_list)):
+                    image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
+                    image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 patient_age = patient_age.cuda()
                 patient_sex = patient_sex.cuda()
                 labels = labels.cuda()
 
-
             images = torch.unsqueeze(images, dim=1)
-            #outputs = model(images, (patient_sex.float(), patient_age.float()))
-            outputs = model(images)
+            outputs = model(images, (patient_sex.float(), patient_age.float()))
+            # outputs = model(images, image_list=image_list)
+            # outputs = model(images)
+            # loss = loss_function(outputs, labels)
+
+            # outputs, output2 = model(image_list[0], image_list[1])
+            #outputs = model(image_list[0], image_list[1])
             loss = loss_function(outputs, labels)
 
             predictions = torch.argmax(outputs, 1)
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
 
-            #print(loss,accuracy)
+            # print(loss,accuracy)
 
             running_loss += loss.item() * images.shape[0]
             running_accuracy += accuracy * images.shape[0]
@@ -139,9 +156,33 @@ def evaluate(test_loader, model, loss_function):
         return epoch_loss, epoch_accuracy
 
 
-def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path):
+class ContrastiveLoss(torch.nn.Module):
+    """
+    Contrastive loss function.
+    Based on:
+    """
+
+    def __init__(self, margin=1.0):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, x0, x1, y):
+        # euclidian distance
+        diff = x0 - x1
+        dist_sq = torch.sum(torch.pow(diff, 2), 1)
+        dist = torch.sqrt(dist_sq)
+
+        mdist = self.margin - dist
+        dist = torch.clamp(mdist, min=0.0)
+        loss = y * dist_sq + (1 - y) * torch.pow(dist, 2)
+        loss = torch.sum(loss) / 2.0 / x0.size()[0]
+        return loss
+
+
+def train(model, optimizer, scheduler, loss_function, train_loader, test_loader, num_epochs, out_path):
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     train_stats = {}
+    criterion = ContrastiveLoss()
     for epoch in range(0, num_epochs, 1):
 
         time_start = time.time()
@@ -150,25 +191,38 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         running_accuracy = 0.0
 
         for sample in train_loader:
-            #breakpoint()
+            # breakpoint()
             model.train()
             images = sample["image"]
+            image_list = sample["image_list"]
             patient_age = sample["patient_age"]
             patient_sex = sample["patient_sex"]
             labels = sample["impression"]
-            #breakpoint()
 
             if torch.cuda.is_available():
                 images = images.to(device="cuda", dtype=torch.float)
+                for i in range(0, len(image_list)):
+                    image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
+                    image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 patient_age = patient_age.cuda()
                 patient_sex = patient_sex.cuda()
                 labels = labels.cuda()
 
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
-            #outputs = model(images, (patient_sex.float(), patient_age.float()))
-            outputs = model(images)
+            #breakpoint()
+            outputs = model(images, (patient_sex.float(), patient_age.float()))
+            # outputs = model(images, image_list=image_list)
+            # outputs = model(images)
+            # loss = loss_function(outputs, labels)
+
+            # output1, output2 = model(image_list[0], image_list[1])
+            # loss = criterion(output1, output2, labels)
+            # breakpoint()
+
+            # outputs = model(image_list[0], image_list[1])
             loss = loss_function(outputs, labels)
+
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -179,7 +233,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             running_loss += loss.item() * images.shape[0]
             running_accuracy += accuracy * images.shape[0]
 
-            #breakpoint()
+            # breakpoint()
 
         epoch_train_loss = running_loss / len(train_loader.dataset)
         epoch_train_accuracy = running_accuracy / len(train_loader.dataset)
@@ -212,4 +266,3 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
         torch.save(train_stats, os.path.join(out_path, 'train_stats.pkl'))
 
     return train_stats
-

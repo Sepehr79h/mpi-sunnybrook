@@ -8,6 +8,7 @@ import pickle
 import time
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from torch import nn
 from torch.utils.data import WeightedRandomSampler
 
 import global_vars as GLOBALS
@@ -18,6 +19,7 @@ from dataset import MinMaxNormalize
 from tqdm import tqdm
 from torchvision import transforms
 from data_analysis.visualize import plot_3d
+from sklearn import preprocessing
 
 
 def save_dicom_store(dicom_path, station_data_path, station_name, series_descriptions):
@@ -134,10 +136,11 @@ def process_data(station_data_dict, labels, station_info):
                 pad_size_height = max_image_height[i] - images[image_name].shape[2]
                 padded_image = np.pad(images[image_name],
                                       ((0, pad_size_frames), (0, pad_size_width), (0, pad_size_height)))
-                stacked_images.append(padded_image)
+                stacked_images.append(padded_image.astype(np.float))
 
+            processed_data[study_id]["image_list"] = stacked_images
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
-            processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 93
+            processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 100
             processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
 
             data_stats["max_pix"] = np.maximum(data_stats["max_pix"],
@@ -155,6 +158,9 @@ def process_data(station_data_dict, labels, station_info):
 
     data_stats["mean"] = sum_x / total_pixels
     data_stats["std"] = np.sqrt(sum_x_sq / total_pixels + data_stats["mean"] ** 2)
+
+    le = preprocessing.LabelEncoder()
+    targets['Impression'] = le.fit_transform(targets['Impression'])
 
     return inputs, targets, data_stats
 
@@ -185,6 +191,8 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(data_stats["mean"], data_stats["std"])])
+
+    print(f"Transforms: {transform}")
 
     dataset = MPIDataset(inputs, labels, transform=transform)
     labels_unique, counts = np.unique(labels["Impression"], return_counts=True)
