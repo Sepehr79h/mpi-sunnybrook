@@ -18,6 +18,8 @@ from pathlib import Path
 
 from data import load_data
 
+from torchsummary import summary
+
 
 def load_conf(conf_path):
     with conf_path.open() as f:
@@ -81,6 +83,8 @@ def initialize(args: APNamespace, network):
     labels_path = Path(args.labels_path).expanduser()
     station_data_path = root_path / Path(args.station_data_path).expanduser()
 
+    scheduler = None
+
     print(f'GLOBALS.CONFIG: {GLOBALS.CONFIG}')
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -93,16 +97,21 @@ def initialize(args: APNamespace, network):
 
     if GLOBALS.CONFIG["optimizer"] == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=GLOBALS.CONFIG["learning_rate"],
-                                    momentum=GLOBALS.CONFIG["momentum"], weight_decay=GLOBALS.CONFIG["weight_decay"], dampening=GLOBALS.CONFIG["dampening"])
+                                    momentum=GLOBALS.CONFIG["momentum"], weight_decay=GLOBALS.CONFIG["weight_decay"],
+                                    dampening=GLOBALS.CONFIG["dampening"])
     elif GLOBALS.CONFIG["optimizer"] == "Adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=GLOBALS.CONFIG["learning_rate"])
 
-    scheduler = ReduceLROnPlateau(optimizer, 'min')
+    if GLOBALS.CONFIG["lr_scheduler"] == "ReduceLROnPlateau":
+        scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
 
     loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
     loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
 
     train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
+
+    # print(summary(model, [(1, 66, 82, 66), (1, 1)]))
+    # breakpoint()
 
     return model, optimizer, scheduler, loss_function, train_loader, test_loader
 
@@ -139,7 +148,7 @@ def evaluate(test_loader, model, loss_function):
             # loss = loss_function(outputs, labels)
 
             # outputs, output2 = model(image_list[0], image_list[1])
-            #outputs = model(image_list[0], image_list[1])
+            # outputs = model(image_list[0], image_list[1])
             loss = loss_function(outputs, labels)
 
             predictions = torch.argmax(outputs, 1)
@@ -179,7 +188,7 @@ class ContrastiveLoss(torch.nn.Module):
         return loss
 
 
-def train(model, optimizer, scheduler, loss_function, train_loader, test_loader, num_epochs, out_path):
+def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path, scheduler=None):
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     train_stats = {}
     criterion = ContrastiveLoss()
@@ -210,7 +219,6 @@ def train(model, optimizer, scheduler, loss_function, train_loader, test_loader,
 
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
-            #breakpoint()
             outputs = model(images, (patient_sex.float(), patient_age.float()))
             # outputs = model(images, image_list=image_list)
             # outputs = model(images)
@@ -243,6 +251,9 @@ def train(model, optimizer, scheduler, loss_function, train_loader, test_loader,
         train_accuracy_list.append(epoch_train_accuracy)
         test_loss_list.append(epoch_test_loss)
         test_accuracy_list.append(epoch_test_accuracy)
+
+        if scheduler:
+            scheduler.step(epoch_test_loss)
 
         time_end = time.time()
 

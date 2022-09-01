@@ -224,19 +224,19 @@ class ResNet(nn.Module):
 
         x = x.view(x.size(0), -1)
         # x = self.dropout_fc(x)
-        out = self.fc(x)
+        # out = self.fc(x)
 
         # x = self.relu(x)
         # x = torch.cat((x, torch.stack(x_stats, dim=1)), dim=1)
         # x = self.fc3(x)
 
-        # x = self.fc5(x)
-        # stats_features = torch.stack(x_stats, dim=1)
-        # out = torch.cat((stats_features, x), dim=-1)
-        # out = self.fc6(out)
-        # out = self.relu(out)
-        # # out = self.dropout_fc(out)
-        # out = self.fc7(out)
+        x = self.fc5(x)
+        stats_features = torch.stack(x_stats, dim=1)
+        out = torch.cat((stats_features, x), dim=-1)
+        out = self.fc6(out)
+        out = self.relu(out)
+        # out = self.dropout_fc(out)
+        out = self.fc7(out)
 
         return out
 

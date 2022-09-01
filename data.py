@@ -190,7 +190,9 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
 
     transform = transforms.Compose(
         [transforms.ToTensor(),
-         transforms.Normalize(data_stats["mean"], data_stats["std"])])
+         transforms.Normalize(data_stats["mean"], data_stats["std"]),
+         transforms.RandomHorizontalFlip(p=0.5),
+         transforms.RandomVerticalFlip(p=0.5)])
 
     print(f"Transforms: {transform}")
 

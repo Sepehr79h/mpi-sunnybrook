@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     print('~~Initialization Complete. Beginning training~~')
 
-    train_stats = train(model, optimizer, scheduler, loss_function, train_loader, test_loader, GLOBALS.CONFIG["num_epochs"], args.output)
+    train_stats = train(model, optimizer, loss_function, train_loader, test_loader, GLOBALS.CONFIG["num_epochs"], args.output, scheduler)
 
     print('~~Training Complete. Generating Output Files~~')
 
