@@ -5,6 +5,7 @@ weight_decay: 0.01
 dampening: 0.1
 optimizer: "SGD"
 lr_scheduler: ""
+sampler: ""
 loss_function: "cross_entropy"
 batch_size: 3
 train_split_percentage: 0.8

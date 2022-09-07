@@ -191,8 +191,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(data_stats["mean"], data_stats["std"]),
-         transforms.RandomHorizontalFlip(p=0.5),
-         transforms.RandomVerticalFlip(p=0.5)])
+         transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))])
 
     print(f"Transforms: {transform}")
 
@@ -202,12 +201,10 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     print(f"Labels: {labels_unique}, Distribution: {counts}")
 
     train_dataset, test_dataset = get_dataset_splits(labels, dataset)
+    sampler = get_sampler(train_dataset, labels)
 
-    # class_weights = [sum(counts) / c for c in counts]
-    # example_weights = [class_weights[e-1] for e in labels["Impression"]]
-    # sampler = WeightedRandomSampler(example_weights, len(labels["Impression"]))
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False,
+                                               sampler=sampler)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False)
 
     return train_loader, test_loader
@@ -231,3 +228,16 @@ def get_dataset_splits(labels, dataset):
         test_split = len(dataset) - train_split
         train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
         return train_dataset, test_dataset
+
+
+def get_sampler(train_dataset, labels):
+    sampler = None
+    if GLOBALS.CONFIG["sampler"] == "WeightedRandomSampler":
+        y_train_indices = train_dataset.indices
+        y_train = [labels.iloc[[i]]["Impression"].iloc[0] for i in y_train_indices]
+        class_sample_count = np.array([len(np.where(y_train == t)[0]) for t in np.unique(y_train)])
+        weight = 1. / class_sample_count
+        samples_weight = np.array([weight[t] for t in y_train])
+        samples_weight = torch.from_numpy(samples_weight)
+        sampler = WeightedRandomSampler(samples_weight.type('torch.DoubleTensor'), len(samples_weight))
+    return sampler
