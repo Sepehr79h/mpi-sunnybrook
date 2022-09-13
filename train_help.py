@@ -121,6 +121,7 @@ def get_accuracy(predictions, labels):
 
 
 def evaluate(test_loader, model, loss_function):
+    predictions_list, labels_list = [], []
     with torch.no_grad():
         running_loss = 0.0
         running_accuracy = 0.0
@@ -159,10 +160,13 @@ def evaluate(test_loader, model, loss_function):
             running_loss += loss.item() * images.shape[0]
             running_accuracy += accuracy * images.shape[0]
 
+            predictions_list = np.concatenate((predictions_list, predictions.cpu().numpy()))
+            labels_list = np.concatenate((labels_list, labels.cpu().numpy()))
+
         epoch_loss = running_loss / len(test_loader.dataset)
         epoch_accuracy = running_accuracy / len(test_loader.dataset)
 
-        return epoch_loss, epoch_accuracy
+        return epoch_loss, epoch_accuracy, predictions_list, labels_list
 
 
 class ContrastiveLoss(torch.nn.Module):
@@ -241,11 +245,9 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             running_loss += loss.item() * images.shape[0]
             running_accuracy += accuracy * images.shape[0]
 
-            # breakpoint()
-
         epoch_train_loss = running_loss / len(train_loader.dataset)
         epoch_train_accuracy = running_accuracy / len(train_loader.dataset)
-        epoch_test_loss, epoch_test_accuracy = evaluate(test_loader, model, loss_function)
+        epoch_test_loss, epoch_test_accuracy, predictions_list, labels_list = evaluate(test_loader, model, loss_function)
 
         train_loss_list.append(epoch_train_loss)
         train_accuracy_list.append(epoch_train_accuracy)
@@ -272,7 +274,9 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "train_accuracy_list": train_accuracy_list,
             "test_loss_list": test_loss_list,
             "test_accuracy_list": test_accuracy_list,
-            "num_epochs": epoch + 1
+            "num_epochs": epoch + 1,
+            "predictions_list": predictions_list,
+            "labels_list": labels_list
         }
         torch.save(train_stats, os.path.join(out_path, 'train_stats.pkl'))
 

@@ -1,5 +1,6 @@
 import re
 
+import imageio
 import numpy as np
 import torch
 import os
@@ -7,6 +8,7 @@ import pydicom
 import pickle
 import time
 import pandas as pd
+from skimage.morphology.tests.test_gray import im
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import WeightedRandomSampler
@@ -57,6 +59,7 @@ def save_dicom_store(dicom_path, station_data_path, station_name, series_descrip
 def get_max_image_frames(station_data_dict, station_info):
     num_patterns = len(next(iter(station_info.values())))
     max_image_frames, max_image_height, max_image_width = [0] * num_patterns, [0] * num_patterns, [0] * num_patterns
+    frame_size_list, height_list, width_list = [], [], []
 
     for station_name in station_info.keys():
 
@@ -69,6 +72,11 @@ def get_max_image_frames(station_data_dict, station_info):
                 match = re.search(desired_image_patterns[i], "".join(images.keys()))
                 if match:
                     image_name = match.group()
+
+                    frame_size_list += [images[image_name].shape[0]]
+                    width_list += [images[image_name].shape[1]]
+                    height_list += [images[image_name].shape[2]]
+
                     max_image_frames[i] = max(max_image_frames[i], images[image_name].shape[0])
                     max_image_width[i] = max(max_image_width[i], images[image_name].shape[1])
                     max_image_height[i] = max(max_image_height[i], images[image_name].shape[2])
@@ -137,6 +145,18 @@ def process_data(station_data_dict, labels, station_info):
                 padded_image = np.pad(images[image_name],
                                       ((0, pad_size_frames), (0, pad_size_width), (0, pad_size_height)))
                 stacked_images.append(padded_image.astype(np.float))
+
+                #print(np.max(padded_image))
+
+                # print()
+                # import matplotlib.pyplot as plt
+                # for j in range(0,images[image_name].shape[0]):
+                #     plt.subplot(3, images[image_name].shape[0]//3, j+1)
+                #     plt.imshow(images[image_name][j, :, :], cmap='gray')
+                #
+                # plt.show()
+                # breakpoint()
+
 
             processed_data[study_id]["image_list"] = stacked_images
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
