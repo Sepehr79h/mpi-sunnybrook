@@ -31,11 +31,14 @@ def generate_output_files(train_stats, out_path):
     plt.savefig(f'{out_path}/accuracy.jpg', dpi=400)
     # plt.show()
 
-    # Build confusion matrix
+    build_confusion_matrix(train_stats, out_path)
+
+
+def build_confusion_matrix(train_stats, out_path):
     cm = confusion_matrix(train_stats["labels_list"], train_stats["predictions_list"])
     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    fig, ax = plt.subplots(figsize=(10,10))
-    sn.heatmap(cmn, annot=True, fmt='.2f', xticklabels=GLOBALS.CONFIG['classes'], yticklabels=GLOBALS.CONFIG['classes'])
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sn.heatmap(cmn, annot=True, fmt='.2f', xticklabels=GLOBALS.CONFIG["classes"], yticklabels=GLOBALS.CONFIG["classes"])
     plt.ylabel('Actual')
     plt.xlabel('Predicted')
     plt.savefig(f'{out_path}/confusion_matrix.jpg')
@@ -48,3 +51,4 @@ if __name__ == "__main__":
 
     stats = torch.load(os.path.join(args.output, 'train_stats.pkl'))
     generate_output_files(stats, args.output)
+    #build_confusion_matrix(stats, args.output)

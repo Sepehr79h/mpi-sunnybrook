@@ -143,7 +143,9 @@ def evaluate(test_loader, model, loss_function):
                 labels = labels.cuda()
 
             images = torch.unsqueeze(images, dim=1)
+
             outputs = model(images, (patient_sex.float(), patient_age.float()))
+
             # outputs = model(images, image_list=image_list)
             # outputs = model(images)
             # loss = loss_function(outputs, labels)
@@ -195,7 +197,6 @@ class ContrastiveLoss(torch.nn.Module):
 def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path, scheduler=None):
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     train_stats = {}
-    criterion = ContrastiveLoss()
     for epoch in range(0, num_epochs, 1):
 
         time_start = time.time()
@@ -212,6 +213,13 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             patient_sex = sample["patient_sex"]
             labels = sample["impression"]
 
+            # print(sample["image"].shape)
+            # breakpoint()
+            # import matplotlib.pyplot as plt
+            # plt.imshow(images[0, 5, :, :], cmap='gray')
+            # plt.show()
+            # breakpoint()
+
             if torch.cuda.is_available():
                 images = images.to(device="cuda", dtype=torch.float)
                 for i in range(0, len(image_list)):
@@ -223,7 +231,9 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
 
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
+
             outputs = model(images, (patient_sex.float(), patient_age.float()))
+
             # outputs = model(images, image_list=image_list)
             # outputs = model(images)
             # loss = loss_function(outputs, labels)
@@ -232,7 +242,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             # loss = criterion(output1, output2, labels)
             # breakpoint()
 
-            # outputs = model(image_list[0], image_list[1])
+            #outputs = model(image_list[0], image_list[1])
             loss = loss_function(outputs, labels)
 
             loss.backward()

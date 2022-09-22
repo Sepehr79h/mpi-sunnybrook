@@ -55,7 +55,7 @@ class CSANet(nn.Module):
         # we use reset18 as per the paper
         weights_path = "/mnt/5gb_ssd/sepehr/Repos/mpi-sunnybrook/models/pretrain_weights/resnet_10_23dataset.pth"
         # self.resnet10 = create_pretrained_medical_resnet(weights_path)
-        self.resnet18 = generate_model(10, n_input_channels=1)
+        self.resnet18 = generate_model(18, n_input_channels=1)
         self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-1])
         # disable gradient computation
         for param in self.resnet18.parameters():

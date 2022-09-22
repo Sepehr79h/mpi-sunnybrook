@@ -23,7 +23,9 @@ if __name__ == "__main__":
     #network = SiameseNetwork()
     #network = CSANet()
     #network = CNNModel(num_classes=len(GLOBALS.CONFIG["classes"]))
+
     network = generate_model(18, n_input_channels=1, n_classes=len(GLOBALS.CONFIG["classes"]))
+
     #network = generate_model(121, n_input_channels=1, num_classes=len(GLOBALS.CONFIG["classes"]))
     #network = S3D(num_class=len(GLOBALS.CONFIG["classes"]))
     #network = I3D(num_classes=2, input_channel=1)
@@ -38,3 +40,5 @@ if __name__ == "__main__":
     print('~~Training Complete. Generating Output Files~~')
 
     generate_output_files(train_stats, args.output)
+
+    print('Finished.')

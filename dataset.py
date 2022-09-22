@@ -1,6 +1,7 @@
 import re
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 from data_analysis.visualize import plot_3d
 
@@ -33,7 +34,22 @@ class MPIDataset(Dataset):
         if self.transform:
             # breakpoint()
             # plot_3d(sample["image"])
+
+            # breakpoint()
+            # import matplotlib.pyplot as plt
+            # plt.imshow(sample["image"][5, :, :], cmap='gray')
+            # plt.show()
+
+
             sample["image"] = self.transform(sample["image"])
+            sample["image"] = torch.permute(sample["image"], (1, 2, 0))
+
+            # breakpoint()
+            # print(sample["impression"])
+            # import matplotlib.pyplot as plt
+            # plt.imshow(sample["image"][5, :, :], cmap='gray')
+            # plt.show()
+
 
         return sample
 

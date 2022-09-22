@@ -8,9 +8,12 @@ lr_scheduler: ""
 sampler: ""
 loss_function: "cross_entropy"
 batch_size: 3
-train_split_percentage: 0.8
+train_split_percentage: 0.9
 classes: [1, 3]
 max_images_per_class: 5000
+max_frame_size: 29
+width_crop_size: 0
+height_crop_size: 0
 split_type: "balanced"
 
 #station_info:

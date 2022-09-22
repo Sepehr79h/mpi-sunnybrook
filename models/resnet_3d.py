@@ -150,7 +150,7 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
-        # self.dropout = nn.Dropout(p=0.2)
+        # # self.dropout = nn.Dropout(p=0.2)
         self.dropout_fc = nn.Dropout(p=0.5)
         # self.fc3 = nn.Linear(n_classes + 2, n_classes)
         # self.fc1 = nn.Linear(2, 10)
@@ -223,6 +223,8 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
 
         x = x.view(x.size(0), -1)
+
+
         # x = self.dropout_fc(x)
         # out = self.fc(x)
 
