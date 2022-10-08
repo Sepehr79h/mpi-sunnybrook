@@ -5,9 +5,11 @@ import torch
 from torch.utils.data import Dataset
 from data_analysis.visualize import plot_3d
 
+
 class MPIDataset(Dataset):
     def __init__(self, inputs, labels, transform=None):
-        self.inputs = inputs
+        self.inputs = inputs[0]
+        self.inputs_statistical = inputs[1]
         self.labels = labels
         self.transform = transform
 
@@ -15,31 +17,20 @@ class MPIDataset(Dataset):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        #breakpoint()
         study_id = self.labels.iloc[[idx]]["Study_ID"].iloc[0]
         sample_input = self.inputs[str(study_id)]
-        #study_id = list(self.inputs.keys())[idx]
-        #sample_input = self.inputs[study_id]
 
         sample = {
             "image": sample_input["series_images"],
-            "image_list": sample_input["image_list"],
-            "patient_sex": sample_input["PatientSex"],
-            "patient_age": sample_input["PatientAge"],
+            "stat_features": self.inputs_statistical.loc[int(study_id)].values,
             "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0]
         }
 
-        # breakpoint()
-
         if self.transform:
-            # breakpoint()
-            # plot_3d(sample["image"])
-
             # breakpoint()
             # import matplotlib.pyplot as plt
             # plt.imshow(sample["image"][5, :, :], cmap='gray')
             # plt.show()
-
 
             sample["image"] = self.transform(sample["image"])
             sample["image"] = torch.permute(sample["image"], (1, 2, 0))
@@ -49,7 +40,6 @@ class MPIDataset(Dataset):
             # import matplotlib.pyplot as plt
             # plt.imshow(sample["image"][5, :, :], cmap='gray')
             # plt.show()
-
 
         return sample
 

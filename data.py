@@ -1,6 +1,5 @@
 import copy
 import re
-
 import imageio
 import numpy as np
 import torch
@@ -9,11 +8,6 @@ import pydicom
 import pickle
 import time
 import pandas as pd
-from skimage.morphology.tests.test_gray import im
-from sklearn.model_selection import train_test_split
-from torch import nn
-from torch.utils.data import WeightedRandomSampler
-
 import global_vars as GLOBALS
 
 from torch.utils.data.dataset import random_split, Subset
@@ -23,9 +17,23 @@ from tqdm import tqdm
 from torchvision import transforms
 from data_analysis.visualize import plot_3d
 from sklearn import preprocessing
+from skimage.morphology.tests.test_gray import im
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
+from torch import nn
+from torch.utils.data import WeightedRandomSampler
 
 
 def save_dicom_store(dicom_path, station_data_path, station_name, series_descriptions):
+    """
+    Description: This method saves the data for a specified station and its scans for fast data retrieval
+
+    :param dicom_path: Path of dicom store
+    :param station_data_path: Path to save dicom store
+    :param station_name: Station name being saved
+    :param series_descriptions: Scans to be saved from the station (e.g. RST and STR scans)
+    """
+
     data = {}
 
     time_start = time.time()
@@ -58,6 +66,13 @@ def save_dicom_store(dicom_path, station_data_path, station_name, series_descrip
 
 
 def get_max_image_frames(station_data_dict, station_info):
+    """
+    Description: This method returns the max image frames, height, and width across all stations for each series description
+
+    :param station_data_dict: Data object containing data for all stations specified in the config
+    :param station_info: Names of all stations and their respective series descriptions specified in the config
+    :return: max image frames, height, and width for each series description across all stations
+    """
     num_patterns = len(next(iter(station_info.values())))
     max_image_frames, max_image_height, max_image_width = [0] * num_patterns, [0] * num_patterns, [0] * num_patterns
     frame_size_list, height_list, width_list = [], [], []
@@ -82,24 +97,18 @@ def get_max_image_frames(station_data_dict, station_info):
                     max_image_width[i] = max(max_image_width[i], images[image_name].shape[1])
                     max_image_height[i] = max(max_image_height[i], images[image_name].shape[2])
 
-    # import matplotlib.pyplot as plt
-    # plt.hist(frame_size_list, bins=np.arange(min(frame_size_list), max(frame_size_list) + 2, 1), ec='black')
-    # plt.xlabel("Frame Size")
-    # plt.ylabel("Num Images")
-    # plt.show()
-    # plt.hist(width_list, bins=np.arange(min(width_list), max(width_list) + 2, 1), ec='black')
-    # plt.xlabel("Image Width")
-    # plt.ylabel("Num Images")
-    # plt.show()
-    # plt.xlabel("Image Height")
-    # plt.ylabel("Num Images")
-    # plt.hist(height_list, bins=np.arange(min(height_list), max(height_list) + 2, 1), ec='black')
-    # plt.show()
-    # breakpoint()
     return max_image_frames, max_image_height, max_image_width
 
 
 def clean_data(station_data_dict, labels, station_info):
+    """
+    Description: This method removes any examples with missing or incorrect data from the dataset
+
+    :param station_data_dict: Data object containing data for all stations specified in the config
+    :param labels: Labels for all data in station_data_dict
+    :param station_info: Names of all stations and their respective series descriptions specified in the config
+    :return: The cleaned data_dict
+    """
     data = copy.deepcopy(station_data_dict)
     class_count = {
         "1": 0,
@@ -108,6 +117,7 @@ def clean_data(station_data_dict, labels, station_info):
         "4": 0
     }
     count = 0
+    is_correct_type = True
     for station_name in station_info.keys():
         raw_inputs = station_data_dict[station_name]
         desired_image_patterns = station_info[station_name]
@@ -121,15 +131,24 @@ def clean_data(station_data_dict, labels, station_info):
 
             df_patient = labels.loc[labels['Study_ID'] == int(study_id)]
             impression = df_patient["Impression"]
-            #stress_test_features = df_patient.drop(['Impression', 'Study_ID'], axis=1)
-            # breakpoint()
+
+            try:
+                df_patient.astype(float)
+                is_correct_type = True
+            except:
+                # print(df_patient)
+                is_correct_type = False
 
             # Clean Data
             if not re.search(rf"{combined_pattern}", "".join(images.keys())) \
-                    or not patient_age or not patient_sex \
-                    or impression.empty or set() == set(GLOBALS.CONFIG["classes"]).intersection(
-                set(impression.unique())) \
-                    or class_count[str(impression.unique()[0])] > GLOBALS.CONFIG["max_images_per_class"]:
+                    or not patient_age \
+                    or not patient_sex \
+                    or impression.empty \
+                    or set() == set(GLOBALS.CONFIG["classes"]).intersection(set(impression.unique())) \
+                    or class_count[str(impression.unique()[0])] > GLOBALS.CONFIG["max_images_per_class"] \
+                    or not is_correct_type\
+                    or df_patient.isnull().values.any():
+
                 data[station_name].pop(study_id)
                 count += 1
                 continue
@@ -145,10 +164,45 @@ def clean_data(station_data_dict, labels, station_info):
                 class_count[str(impression.unique()[0])] += 1
 
     print(f"Filtered {count} examples during data cleaning.")
+    # breakpoint()
     return data
 
 
+def get_df_categorical(df):
+    """
+    Description: This method processes the categorical attributes of the data
+
+    :param df: Dataframe containing all categorical attributes to be used in the model
+    :return: Returns the processed categorical dataframe to be used in the model
+    """
+    one_hot_encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    df_categorical = pd.DataFrame(one_hot_encoder.fit_transform(df))
+    df_categorical.index = df.index
+    return df_categorical
+
+
+def get_df_numerical(df):
+    """
+    Description: This method processes the numerical attributes of the data
+
+    :param df: Dataframe containing all numerical attributes to be used in the model
+    :return: Returns the processed numerical dataframe to be used in the model
+    """
+    df = df.astype(float)
+    df_numerical = df[df.columns].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
+    return df_numerical
+
+
 def process_data(station_data_dict, labels, station_info):
+    """
+    Description: This method performs all pre-processing for the data extracted from the di-com store
+
+    :param station_data_dict: Data object containing data for all stations specified in the config
+    :param labels: Labels for all data in station_data_dict
+    :param station_info: Names of all stations and their respective series descriptions specified in the config
+    :return: A tuple containing both image and stat data, labels, and important data stats
+    """
+    df_stat_features = pd.DataFrame()
     inputs = {}
     targets = pd.DataFrame()
     total_pixels, sum_x, sum_x_sq = 0, 0.0, 0.0
@@ -173,6 +227,11 @@ def process_data(station_data_dict, labels, station_info):
             patient_sex = raw_inputs[study_id]["PatientSex"]
             patient_age = raw_inputs[study_id]["PatientAge"]
             targets = pd.concat([targets, labels.loc[labels['Study_ID'] == int(study_id)]], ignore_index=True)
+
+            df_patient = labels.loc[labels['Study_ID'] == int(study_id)]
+            df_stats_patient = df_patient.drop(['Impression'], axis=1)
+            df_stats_patient = df_stats_patient.assign(patient_sex=patient_sex, patient_age=int(patient_age[:-1]))
+            df_stat_features = pd.concat([df_stat_features, df_stats_patient])
 
             # Process Data
             stacked_images = []
@@ -204,34 +263,10 @@ def process_data(station_data_dict, labels, station_info):
                 #                    'width_crop_size']]
                 stacked_images.append(padded_image.astype(np.float))
 
-                # import matplotlib.pyplot as plt
-                # plt.imshow(padded_image[5, :, :], cmap='gray')
-                # plt.show()
-                # breakpoint()
-
-                # print(images[image_name].shape)
-                # breakpoint()
-                # images[image_name] = images[image_name][:, 20:44:, 5:59]
-                # import matplotlib.pyplot as plt
-                # plt.imshow(images[image_name][5, :, :], cmap='gray')
-                # plt.show()
-                # breakpoint()
-
-                # for j in range(0,images[image_name].shape[0]):
-                #     plt.subplot(2, images[image_name].shape[0]//2, j+1)
-                #     plt.imshow(images[image_name][j, :, :], cmap='gray')
-                #
-                # plt.show()
-                #
-                # breakpoint()
-
             processed_data[study_id]["image_list"] = stacked_images
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
-            processed_data[study_id]["PatientAge"] = int(patient_age[:-1]) / 100
-            processed_data[study_id]["PatientSex"] = 0 if patient_sex == "M" else 1
 
-            data_stats["max_age"] = max(data_stats["max_age"], processed_data[study_id]["PatientAge"])
-
+            # data_stats["max_age"] = max(data_stats["max_age"], processed_data[study_id]["PatientAge"])
             # plot_3d(processed_data[study_id]["series_images"])
             # breakpoint()
 
@@ -243,13 +278,25 @@ def process_data(station_data_dict, labels, station_info):
     le = preprocessing.LabelEncoder()
     targets['Impression'] = le.fit_transform(targets['Impression'])
 
-    # plot_sample_image(inputs["8718"]["series_images"], 10, 6)
-    # breakpoint()
+    df_categorical = get_df_categorical(df_stat_features[["patient_sex", "Stress Type"]])
+    df_numerical = get_df_numerical(df_stat_features[["Post-Stress LVEF", "Resting LVEF", "patient_age"]])
+    df_stat_features = pd.concat([df_stat_features["Study_ID"], df_categorical, df_numerical], axis=1)
+    df_stat_features = df_stat_features.set_index('Study_ID')
 
-    return inputs, targets, data_stats
+    # torch.from_numpy(df.values.astype(float))
+    # plot_sample_image(inputs["8718"]["series_images"], 10, 6)
+
+    return (inputs, df_stat_features), targets, data_stats
 
 
 def plot_sample_image(image, subplot_rows, subplot_height):
+    """
+    Description: Plot a mpi image used in the dataset with all its corresponding frames
+
+    :param image: The image to be plotted
+    :param subplot_rows: Number of rows for subplots
+    :param subplot_height: Number of columns for subplots
+    """
     import matplotlib.pyplot as plt
     for j in range(0, image.shape[0]):
         plt.subplot(subplot_rows, subplot_height, j + 1)
@@ -258,6 +305,15 @@ def plot_sample_image(image, subplot_rows, subplot_height):
 
 
 def load_data(dicom_path, labels_path, station_data_path, station_info):
+    """
+    Description: This method defines the dataset, train and test loaders, which will be ready to be used by the model
+
+    :param dicom_path: Path of dicom store
+    :param labels_path: Path of label excel file
+    :param station_data_path: Path of the saved station data
+    :param station_info: Names of all stations and their respective series descriptions specified in the config
+    :return: The train and test loader to be used by the model
+    """
     print(f"Fetching dicom store from path: {dicom_path}")
     print(f"Fetching labels from path: {labels_path}")
 
@@ -283,7 +339,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(data_stats["mean"], data_stats["std"]),
-         # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+         #transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
          transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))])
     print(f"Transforms: {transform}")
 
@@ -303,6 +359,13 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
 
 
 def get_dataset_splits(labels, dataset):
+    """
+    Description: This method returns the dataset split depending on the specification in the config
+
+    :param labels: Labels of the dataset
+    :param dataset: The dataset containing all train and test data
+    :return: The split train and test datasets to be used by the train and test loaders
+    """
     if GLOBALS.CONFIG["split_type"] == "balanced":
         targets = labels["Impression"].to_numpy()
         train_indices, test_indices = train_test_split(np.arange(targets.shape[0]), stratify=targets,
@@ -324,6 +387,13 @@ def get_dataset_splits(labels, dataset):
 
 
 def get_sampler(train_dataset, labels):
+    """
+    Description: This method defines the sampler to be used by the train loader
+
+    :param train_dataset: The training dataset
+    :param labels: The labels for the dataset
+    :return: The sampler to be used by the train loader
+    """
     sampler = None
     if GLOBALS.CONFIG["sampler"] == "WeightedRandomSampler":
         y_train_indices = train_dataset.indices

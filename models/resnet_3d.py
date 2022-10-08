@@ -1,4 +1,4 @@
-# https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/models/resnet.py
+# This code was obtained from: https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/models/resnet.py
 
 import math
 from functools import partial
@@ -158,7 +158,7 @@ class ResNet(nn.Module):
         # self.fc3 = nn.Linear(128, 512)
         # self.fc4 = nn.Linear(1024, 512)
         self.fc5 = nn.Linear(block_inplanes[-1], 128)
-        self.fc6 = nn.Linear(130, 10)
+        self.fc6 = nn.Linear(135, 10)
         self.fc7 = nn.Linear(10, n_classes)
 
         for m in self.modules():
@@ -206,6 +206,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x, x_stats=None):
+        #breakpoint()
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -233,12 +234,23 @@ class ResNet(nn.Module):
         # x = self.fc3(x)
 
         x = self.fc5(x)
-        stats_features = torch.stack(x_stats, dim=1)
-        out = torch.cat((stats_features, x), dim=-1)
+        #breakpoint()
+        #stats_features = torch.stack(x_stats, dim=1)
+        #breakpoint()
+        out = torch.cat((x, x_stats), dim=-1)
         out = self.fc6(out)
         out = self.relu(out)
-        # out = self.dropout_fc(out)
+        #out = self.dropout_fc(out)
         out = self.fc7(out)
+
+        # x = self.fc5(x)
+        # out = self.relu(x)
+        # out = self.fc6(out)
+        # out = torch.cat((out, x_stats), dim=-1)
+        # #out = self.relu(out)
+        # out = self.fc7(out)
+
+        #breakpoint()
 
         return out
 

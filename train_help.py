@@ -1,13 +1,10 @@
 import os
 import sys
-from typing import Any
-
 import yaml
 import torch
 import time
 import torch.backends.cudnn as cudnn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
 import global_vars as GLOBALS
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,13 +12,17 @@ import torch.nn.functional as F
 
 from argparse import Namespace as APNamespace, ArgumentParser
 from pathlib import Path
-
 from data import load_data
-
 from torchsummary import summary
 
 
 def load_conf(conf_path):
+    """
+    Description: This method loads the config file
+
+    :param conf_path: Path to the config file
+    :return: The loaded yaml object containing all config specifications
+    """
     with conf_path.open() as f:
         try:
             GLOBALS.CONFIG = yaml.safe_load(f)
@@ -33,6 +34,11 @@ def load_conf(conf_path):
 
 
 def get_args(parser: ArgumentParser):
+    """
+    Description: This method defines all arguments which may be specified
+
+    :param parser: Parser containing all arguments
+    """
     parser.add_argument(
         '--root', dest='root',
         default='.', type=str,
@@ -60,6 +66,11 @@ def get_args(parser: ArgumentParser):
 
 
 def build_paths(args: APNamespace):
+    """
+    Description: This method builds all paths specified by the args and loads the config
+
+    :param args: All args specified to the program
+    """
     root_path = Path(args.root).expanduser()
     conf_path = Path(args.config).expanduser()
     out_path = root_path / Path(args.output).expanduser()
@@ -78,6 +89,13 @@ def build_paths(args: APNamespace):
 
 
 def initialize(args: APNamespace, network):
+    """
+    Description: This method initializes all necessary parameters to be used in training
+
+    :param args: All args specified to the program
+    :param network: The network architecture to be used in training
+    :return: model, optimizer, scheduler, loss_function, train_loader, test_loader
+    """
     root_path = Path(args.root).expanduser()
     dicom_path = Path(args.dicom_path).expanduser()
     labels_path = Path(args.labels_path).expanduser()
@@ -110,17 +128,29 @@ def initialize(args: APNamespace, network):
 
     train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
 
-    # print(summary(model, [(1, 66, 82, 66), (1, 1)]))
-    # breakpoint()
-
     return model, optimizer, scheduler, loss_function, train_loader, test_loader
 
 
 def get_accuracy(predictions, labels):
+    """
+    Description: This method returns the accuracy of the predictions made by the model
+
+    :param predictions: The predictions made by the model
+    :param labels: All labels for the dataset
+    :return: The accuracy of the predictions made by the model
+    """
     return np.sum(predictions == labels) / predictions.shape[0]
 
 
 def evaluate(test_loader, model, loss_function):
+    """
+    Description: This method evaluates the model on test data
+
+    :param test_loader: The test loader containing all test data
+    :param model: The machine learning model to be used
+    :param loss_function: The specified loss function
+    :return: epoch_loss, epoch_accuracy, predictions_list, labels_list
+    """
     predictions_list, labels_list = [], []
     with torch.no_grad():
         running_loss = 0.0
@@ -128,31 +158,19 @@ def evaluate(test_loader, model, loss_function):
         for sample in test_loader:
             model.eval()
             images = sample["image"]
-            image_list = sample["image_list"]
-            patient_age = sample["patient_age"]
-            patient_sex = sample["patient_sex"]
+            stat_features = sample["stat_features"]
             labels = sample["impression"]
 
             if torch.cuda.is_available():
                 images = images.to(device="cuda", dtype=torch.float)
-                for i in range(0, len(image_list)):
-                    image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
-                    image_list[i] = torch.unsqueeze(image_list[i], dim=1)
-                patient_age = patient_age.cuda()
-                patient_sex = patient_sex.cuda()
+                stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
             images = torch.unsqueeze(images, dim=1)
 
-            outputs = model(images, (patient_sex.float(), patient_age.float()))
-
-            # outputs = model(images, image_list=image_list)
-            # outputs = model(images)
-            # loss = loss_function(outputs, labels)
-
-            # outputs, output2 = model(image_list[0], image_list[1])
-            # outputs = model(image_list[0], image_list[1])
+            outputs = model(images, stat_features)
             loss = loss_function(outputs, labels)
+            # breakpoint()
 
             predictions = torch.argmax(outputs, 1)
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
@@ -171,30 +189,20 @@ def evaluate(test_loader, model, loss_function):
         return epoch_loss, epoch_accuracy, predictions_list, labels_list
 
 
-class ContrastiveLoss(torch.nn.Module):
-    """
-    Contrastive loss function.
-    Based on:
-    """
-
-    def __init__(self, margin=1.0):
-        super(ContrastiveLoss, self).__init__()
-        self.margin = margin
-
-    def forward(self, x0, x1, y):
-        # euclidian distance
-        diff = x0 - x1
-        dist_sq = torch.sum(torch.pow(diff, 2), 1)
-        dist = torch.sqrt(dist_sq)
-
-        mdist = self.margin - dist
-        dist = torch.clamp(mdist, min=0.0)
-        loss = y * dist_sq + (1 - y) * torch.pow(dist, 2)
-        loss = torch.sum(loss) / 2.0 / x0.size()[0]
-        return loss
-
-
 def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path, scheduler=None):
+    """
+    Description: This method performs the training loop and saves all relevant training stats
+
+    :param model: The machine learning model to be used
+    :param optimizer: The optimizer to be used
+    :param loss_function: The loss function to be used
+    :param train_loader: The train loader containing all train data
+    :param test_loader: The test loader containing all test data
+    :param num_epochs: The number of epochs for the training loop
+    :param out_path: The output path to save all training stats
+    :param scheduler: The scheduler to be used
+    :return: Training stats obtained by the training loop
+    """
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     train_stats = {}
     for epoch in range(0, num_epochs, 1):
@@ -208,42 +216,20 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             # breakpoint()
             model.train()
             images = sample["image"]
-            image_list = sample["image_list"]
-            patient_age = sample["patient_age"]
-            patient_sex = sample["patient_sex"]
+            stat_features = sample["stat_features"]
             labels = sample["impression"]
-
-            # print(sample["image"].shape)
-            # breakpoint()
-            # import matplotlib.pyplot as plt
-            # plt.imshow(images[0, 5, :, :], cmap='gray')
-            # plt.show()
-            # breakpoint()
 
             if torch.cuda.is_available():
                 images = images.to(device="cuda", dtype=torch.float)
-                for i in range(0, len(image_list)):
-                    image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
-                    image_list[i] = torch.unsqueeze(image_list[i], dim=1)
-                patient_age = patient_age.cuda()
-                patient_sex = patient_sex.cuda()
+                stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
 
-            outputs = model(images, (patient_sex.float(), patient_age.float()))
-
-            # outputs = model(images, image_list=image_list)
-            # outputs = model(images)
-            # loss = loss_function(outputs, labels)
-
-            # output1, output2 = model(image_list[0], image_list[1])
-            # loss = criterion(output1, output2, labels)
-            # breakpoint()
-
-            #outputs = model(image_list[0], image_list[1])
+            outputs = model(images, stat_features)
             loss = loss_function(outputs, labels)
+            # breakpoint()
 
             loss.backward()
             optimizer.step()
@@ -257,7 +243,8 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
 
         epoch_train_loss = running_loss / len(train_loader.dataset)
         epoch_train_accuracy = running_accuracy / len(train_loader.dataset)
-        epoch_test_loss, epoch_test_accuracy, predictions_list, labels_list = evaluate(test_loader, model, loss_function)
+        epoch_test_loss, epoch_test_accuracy, predictions_list, labels_list = evaluate(test_loader, model,
+                                                                                       loss_function)
 
         train_loss_list.append(epoch_train_loss)
         train_accuracy_list.append(epoch_train_accuracy)

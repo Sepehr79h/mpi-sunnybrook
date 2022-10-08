@@ -20,16 +20,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     output_path = build_paths(args)
 
-    #network = SiameseNetwork()
-    #network = CSANet()
-    #network = CNNModel(num_classes=len(GLOBALS.CONFIG["classes"]))
-
     network = generate_model(18, n_input_channels=1, n_classes=len(GLOBALS.CONFIG["classes"]))
-
-    #network = generate_model(121, n_input_channels=1, num_classes=len(GLOBALS.CONFIG["classes"]))
-    #network = S3D(num_class=len(GLOBALS.CONFIG["classes"]))
-    #network = I3D(num_classes=2, input_channel=1)
-    #network = generate_model(50, 1, n_input_channels=1, n_classes=len(GLOBALS.CONFIG["classes"]))
 
     model, optimizer, scheduler, loss_function, train_loader, test_loader = initialize(args, network)
 
