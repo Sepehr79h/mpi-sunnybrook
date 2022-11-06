@@ -123,7 +123,7 @@ def initialize(args: APNamespace, network):
     if GLOBALS.CONFIG["lr_scheduler"] == "ReduceLROnPlateau":
         scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
 
-    loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss()}
+    loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss(), "binary_cross_entropy": torch.nn.BCELoss()}
     loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
 
     train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
@@ -160,19 +160,25 @@ def evaluate(test_loader, model, loss_function):
             images = sample["image"]
             stat_features = sample["stat_features"]
             labels = sample["impression"]
+            image_list = sample["image_list"]
 
             if torch.cuda.is_available():
+                for i in range(0, len(image_list)):
+                    image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
+                    image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 images = images.to(device="cuda", dtype=torch.float)
                 stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
             images = torch.unsqueeze(images, dim=1)
 
-            outputs = model(images, stat_features)
-            loss = loss_function(outputs, labels)
-            # breakpoint()
+            if GLOBALS.CONFIG["model"] == "own_network":
+                outputs = model(image_list[0], image_list[1], stat_features)
+            else:
+                outputs = model(images, stat_features)
+            loss = loss_function(outputs.squeeze(), labels.float())
 
-            predictions = torch.argmax(outputs, 1)
+            predictions = torch.where(outputs > 0.5, 1, 0).squeeze() #torch.argmax(outputs, 1)
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
 
             # print(loss,accuracy)
@@ -218,8 +224,12 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             images = sample["image"]
             stat_features = sample["stat_features"]
             labels = sample["impression"]
+            image_list = sample["image_list"]
 
             if torch.cuda.is_available():
+                for i in range(0, len(image_list)):
+                    image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
+                    image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 images = images.to(device="cuda", dtype=torch.float)
                 stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
@@ -227,15 +237,18 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
 
-            outputs = model(images, stat_features)
-            loss = loss_function(outputs, labels)
-            # breakpoint()
+            if GLOBALS.CONFIG["model"] == "own_network":
+                outputs = model(image_list[0], image_list[1], stat_features)
+            else:
+                outputs = model(images, stat_features)
+
+            loss = loss_function(outputs.squeeze(), labels.float())
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-            predictions = torch.argmax(outputs, 1)
+            predictions = torch.where(outputs > 0.5, 1, 0).squeeze() #torch.argmax(outputs, 1)
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
 
             running_loss += loss.item() * images.shape[0]

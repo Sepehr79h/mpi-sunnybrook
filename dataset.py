@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from data_analysis.visualize import plot_3d
+import global_vars as GLOBALS
 
 
 class MPIDataset(Dataset):
@@ -22,19 +23,39 @@ class MPIDataset(Dataset):
 
         sample = {
             "image": sample_input["series_images"],
+            "image_list": sample_input["image_list"],
             "stat_features": self.inputs_statistical.loc[int(study_id)].values,
             "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0]
         }
+        # breakpoint()
 
         if self.transform:
             # breakpoint()
+            # print(sample["impression"])
             # import matplotlib.pyplot as plt
             # plt.imshow(sample["image"][5, :, :], cmap='gray')
             # plt.show()
+            # import matplotlib.pyplot as plt
+            # for j in range(0, sample["image"].shape[0]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(sample["image"][j, :, :], cmap='gray')
+            # plt.show()
+            if GLOBALS.CONFIG["model"] == "own_network":
+                for i in range(0, len(sample["image_list"])):
+                    if torch.is_tensor(sample["image_list"][i]):
+                        sample["image_list"][i] = sample["image_list"][i].detach().cpu().numpy()
+                    sample["image_list"][i] = self.transform(sample["image_list"][i])
+                    sample["image_list"][i] = torch.permute(sample["image_list"][i], (1, 2, 0))
+            else:
+                sample["image"] = self.transform(sample["image"])
+                sample["image"] = torch.permute(sample["image"], (1, 2, 0))
 
-            sample["image"] = self.transform(sample["image"])
-            sample["image"] = torch.permute(sample["image"], (1, 2, 0))
-
+            # breakpoint()
+            # import matplotlib.pyplot as plt
+            # for j in range(0, sample["image"].shape[0]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(sample["image"][j, :, :], cmap='gray')
+            # plt.show()
             # breakpoint()
             # print(sample["impression"])
             # import matplotlib.pyplot as plt

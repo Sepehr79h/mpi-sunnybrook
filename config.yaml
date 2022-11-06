@@ -1,4 +1,4 @@
-num_epochs: 100
+num_epochs: 200
 learning_rate: 0.001
 momentum: 0.9
 weight_decay: 0
@@ -6,15 +6,16 @@ dampening: 0
 optimizer: "Adam"
 lr_scheduler: ""
 sampler: ""
-loss_function: "cross_entropy"
+loss_function: "binary_cross_entropy" #"cross_entropy"
 batch_size: 64
 train_split_percentage: 0.8
 classes: [1, 3]
 max_images_per_class: 5000
 max_frame_size: 29
-width_crop_size: 0
-height_crop_size: 0
+width_crop_size: 20
+height_crop_size: 20
 split_type: "balanced"
+model: "resnet_3d"
 
 
 #station_info:
@@ -23,6 +24,8 @@ split_type: "balanced"
 #    - RST._S_TF_SD._SA
 #    - STR._U_TF_SD._SA
 #    - STR._S_TF_SD._SA
+
+
 
 station_info:
   BrightView:
@@ -34,4 +37,7 @@ station_info:
   P3000XP328:
     - SAX-STR
     - SAX-RST
+#  DSPECT:
+#    - STR._S_TF_SD._SA
+#    - RST._S_TF_SD._SA
 

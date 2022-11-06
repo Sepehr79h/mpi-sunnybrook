@@ -157,6 +157,7 @@ def clean_data(station_data_dict, labels, station_info):
                 if GLOBALS.CONFIG["max_frame_size"]:
                     image_name = re.search(desired_image_patterns[i], "".join(images.keys())).group()
                     if images[image_name].shape[0] > GLOBALS.CONFIG["max_frame_size"]:
+                        #print(station_name, images[image_name].shape)
                         count += 1
                         data[station_name].pop(study_id)
                         break
@@ -261,6 +262,7 @@ def process_data(station_data_dict, labels, station_info):
                 #                    'height_crop_size'],
                 #                GLOBALS.CONFIG['width_crop_size']:padded_image.shape[2] - GLOBALS.CONFIG[
                 #                    'width_crop_size']]
+                #breakpoint()
                 stacked_images.append(padded_image.astype(np.float))
 
             processed_data[study_id]["image_list"] = stacked_images
@@ -282,6 +284,7 @@ def process_data(station_data_dict, labels, station_info):
     df_numerical = get_df_numerical(df_stat_features[["Post-Stress LVEF", "Resting LVEF", "patient_age"]])
     df_stat_features = pd.concat([df_stat_features["Study_ID"], df_categorical, df_numerical], axis=1)
     df_stat_features = df_stat_features.set_index('Study_ID')
+    # breakpoint()
 
     # torch.from_numpy(df.values.astype(float))
     # plot_sample_image(inputs["8718"]["series_images"], 10, 6)
@@ -339,8 +342,12 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(data_stats["mean"], data_stats["std"]),
+         transforms.RandomHorizontalFlip(),
+         transforms.RandomRotation(30),
+         transforms.RandomAffine(0, translate=(0.01, 0.01))
+         ])#,
          #transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-         transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))])
+         #transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))])
     print(f"Transforms: {transform}")
 
     dataset = MPIDataset(inputs, labels, transform=transform)
