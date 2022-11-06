@@ -1,1 +1,15 @@
 models/__pycache__/*
+models/pretrain_weights/*
+__pycache__/*
+data_analysis/__pycache__/*
+data_analysis/__pycache__/generate_plots.cpython-39.pyc
+labels.xlsx
+models/hi.py
+models/utils.py
+nohup.out
+result.png
+station_data/*
+temp/*
+test.jpg
+train_output/*
+
