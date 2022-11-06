@@ -1,4 +1,4 @@
-# This code was obtained from: https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/models/resnet.py
+# https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/models/resnet.py
 
 import math
 from functools import partial
@@ -150,17 +150,6 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
-        # # self.dropout = nn.Dropout(p=0.2)
-        self.dropout_fc = nn.Dropout(p=0.5)
-        # self.fc3 = nn.Linear(n_classes + 2, n_classes)
-        # self.fc1 = nn.Linear(2, 10)
-        # self.fc2 = nn.Linear(10, 128)
-        # self.fc3 = nn.Linear(128, 512)
-        # self.fc4 = nn.Linear(1024, 512)
-        self.fc5 = nn.Linear(block_inplanes[-1], 128)
-        self.fc6 = nn.Linear(128, 10)
-        self.fc7 = nn.Linear(10+7, 1)
-        self.sigmoid = nn.Sigmoid()
 
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -206,8 +195,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, x_stats=None):
-        #breakpoint()
+    def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -215,49 +203,25 @@ class ResNet(nn.Module):
             x = self.maxpool(x)
 
         x = self.layer1(x)
-        # x = self.dropout(x)
         x = self.layer2(x)
-        # x = self.dropout(x)
         x = self.layer3(x)
-        # x = self.dropout(x)
         x = self.layer4(x)
 
         x = self.avgpool(x)
 
         x = x.view(x.size(0), -1)
+        x = self.fc(x)
 
-
-        # x = self.dropout_fc(x)
-        # out = self.fc(x)
-
-        # x = self.relu(x)
-        # x = torch.cat((x, torch.stack(x_stats, dim=1)), dim=1)
-        # x = self.fc3(x)
-
-        # x = self.fc5(x)
-        # out = torch.cat((x, x_stats), dim=-1)
-        # out = self.fc6(out)
-        # out = self.relu(out)
-        # out = self.fc7(out)
-
-        x = self.fc5(x)
-        out = self.relu(x)
-        out = self.fc6(out)
-        out = torch.cat((out, x_stats), dim=-1)
-        out = self.fc7(out)
-        out = self.sigmoid(out)
-
-        return out
+        return x
 
 
 def generate_model(model_depth, **kwargs):
     assert model_depth in [10, 18, 34, 50, 101, 152, 200]
 
     if model_depth == 10:
-        model = ResNet(BasicBlock, [1, 1, 1, 1], [64, 128, 256, 512], **kwargs)
+        model = ResNet(BasicBlock, [1, 1, 1, 1], get_inplanes(), **kwargs)
     elif model_depth == 18:
-        model = ResNet(BasicBlock, [2, 2, 2, 2], [64, 128, 256, 512], **kwargs)
-        #print(model)
+        model = ResNet(BasicBlock, [2, 2, 2, 2], get_inplanes(), **kwargs)
     elif model_depth == 34:
         model = ResNet(BasicBlock, [3, 4, 6, 3], get_inplanes(), **kwargs)
     elif model_depth == 50:

@@ -55,8 +55,8 @@ class CSANet(nn.Module):
         # we use reset18 as per the paper
         weights_path = "/mnt/5gb_ssd/sepehr/Repos/mpi-sunnybrook/models/pretrain_weights/resnet_10_23dataset.pth"
         # self.resnet10 = create_pretrained_medical_resnet(weights_path)
-        self.resnet18 = generate_model(18, n_input_channels=1)
-        self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-1])
+        self.resnet18 = generate_model(34, n_input_channels=1)
+        self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-5])
         # disable gradient computation
         for param in self.resnet18.parameters():
             param.requires_grad = False
@@ -74,7 +74,7 @@ class CSANet(nn.Module):
         self.dropout = nn.Dropout(p=0.5)
         self.fc2 = nn.Linear(128, 2)
 
-    def forward(self, str_image, rst_image):
+    def forward(self, str_image, rst_image, stat_features):
         # # extract img's features
         # str_feature = self.resnet18(str_image)
         # str_feature = self.embedding_layer(str_feature.reshape(str_feature.shape[0], -1))
@@ -96,6 +96,7 @@ class CSANet(nn.Module):
         out = self.relu(out)
         # out = self.dropout(out)
         out = self.fc2(out)
+        #breakpoint()
 
         # # repeat these features (num_subspaces times) to perform multiply with masks
         # # TODO: check if there is a better way to do the multiplication without repeat
