@@ -146,9 +146,8 @@ def clean_data(station_data_dict, labels, station_info):
                     or impression.empty \
                     or set() == set(GLOBALS.CONFIG["classes"]).intersection(set(impression.unique())) \
                     or class_count[str(impression.unique()[0])] > GLOBALS.CONFIG["max_images_per_class"] \
-                    or not is_correct_type\
+                    or not is_correct_type \
                     or df_patient.isnull().values.any():
-
                 data[station_name].pop(study_id)
                 count += 1
                 continue
@@ -157,7 +156,7 @@ def clean_data(station_data_dict, labels, station_info):
                 if GLOBALS.CONFIG["max_frame_size"]:
                     image_name = re.search(desired_image_patterns[i], "".join(images.keys())).group()
                     if images[image_name].shape[0] > GLOBALS.CONFIG["max_frame_size"]:
-                        #print(station_name, images[image_name].shape)
+                        # print(station_name, images[image_name].shape)
                         count += 1
                         data[station_name].pop(study_id)
                         break
@@ -238,7 +237,6 @@ def process_data(station_data_dict, labels, station_info):
             stacked_images = []
             for i in range(len(desired_image_patterns)):
                 image_name = re.search(desired_image_patterns[i], "".join(images.keys())).group()
-
                 total_pixels += images[image_name].size
                 sum_x += np.sum(images[image_name])
                 sum_x_sq += np.sum(np.square(images[image_name]))
@@ -262,11 +260,34 @@ def process_data(station_data_dict, labels, station_info):
                 #                    'height_crop_size'],
                 #                GLOBALS.CONFIG['width_crop_size']:padded_image.shape[2] - GLOBALS.CONFIG[
                 #                    'width_crop_size']]
-                #breakpoint()
+                # breakpoint()
                 stacked_images.append(padded_image.astype(np.float))
 
+            # breakpoint()
             processed_data[study_id]["image_list"] = stacked_images
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
+            processed_data[study_id]["stress_image"] = stacked_images[0]
+            processed_data[study_id]["rest_image"] = stacked_images[1]
+
+            # breakpoint()
+
+            # import matplotlib.pyplot as plt
+            # for j in range(0, processed_data[study_id]["stress_image"].shape[0]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(processed_data[study_id]["stress_image"][j, :, :], cmap='gray')
+            # plt.show()
+            # for j in range(0, processed_data[study_id]["rest_image"].shape[0]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(processed_data[study_id]["rest_image"][j, :, :], cmap='gray')
+            # plt.show()
+            # breakpoint()
+
+            # import matplotlib.pyplot as plt
+            # for j in range(0, processed_data[study_id]["series_images"].shape[0]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(processed_data[study_id]["series_images"][j, :, :], cmap='gray')
+            # plt.show()
+            # breakpoint()
 
             # data_stats["max_age"] = max(data_stats["max_age"], processed_data[study_id]["PatientAge"])
             # plot_3d(processed_data[study_id]["series_images"])
@@ -339,23 +360,33 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     # transform = transforms.Compose(
     #     [MinMaxNormalize(data_stats["min_pix"], data_stats["max_pix"], data_stats["max_age"])])
 
-    transform = transforms.Compose(
+    transform_train = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            #transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
+            transforms.RandomHorizontalFlip(),
+            transforms.Normalize(data_stats["mean"], data_stats["std"]),
+            # transforms.RandomRotation(30),
+            # transforms.RandomAffine(0, translate=(0.01, 0.01))
+        ])
+
+    transform_test = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(data_stats["mean"], data_stats["std"]),
-         transforms.RandomHorizontalFlip(),
-         transforms.RandomRotation(30),
-         transforms.RandomAffine(0, translate=(0.01, 0.01))
-         ])#,
-         #transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-         #transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))])
-    print(f"Transforms: {transform}")
+         ])
+    # ,
+    # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+    # transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))])
+    print(f"Train Transforms: {transform_train}")
 
-    dataset = MPIDataset(inputs, labels, transform=transform)
+    full_dataset_train = MPIDataset(inputs, labels, transform=transform_train)
+    full_dataset_test = MPIDataset(inputs, labels, transform=transform_test)
+
     labels_unique, counts = np.unique(labels["Impression"], return_counts=True)
-    print(f"Dataset Size: {len(dataset)}")
+    print(f"Dataset Size: {len(full_dataset_test)}")
     print(f"Labels: {labels_unique}, Distribution: {counts}")
 
-    train_dataset, test_dataset = get_dataset_splits(labels, dataset)
+    train_dataset, test_dataset = get_dataset_splits(labels, full_dataset_train, full_dataset_test)
     sampler = get_sampler(train_dataset, labels)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False,
@@ -365,7 +396,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     return train_loader, test_loader
 
 
-def get_dataset_splits(labels, dataset):
+def get_dataset_splits(labels, dataset_train, dataset_test):
     """
     Description: This method returns the dataset split depending on the specification in the config
 
@@ -382,15 +413,16 @@ def get_dataset_splits(labels, dataset):
         print(f"Train Class Distribution: {train_counts}")
         print(f"Test Class Distribution: {test_counts}")
 
-        train_dataset = Subset(dataset, indices=train_indices)
-        test_dataset = Subset(dataset, indices=test_indices)
+        train_dataset = Subset(dataset_train, indices=train_indices)
+        test_dataset = Subset(dataset_test, indices=test_indices)
+
         return train_dataset, test_dataset
 
-    elif GLOBALS.CONFIG["split_type"] == "random":
-        train_split = int(len(dataset) * GLOBALS.CONFIG["train_split_percentage"])
-        test_split = len(dataset) - train_split
-        train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
-        return train_dataset, test_dataset
+    # elif GLOBALS.CONFIG["split_type"] == "random":
+    #     train_split = int(len(dataset) * GLOBALS.CONFIG["train_split_percentage"])
+    #     test_split = len(dataset) - train_split
+    #     train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
+    #     return train_dataset, test_dataset
 
 
 def get_sampler(train_dataset, labels):

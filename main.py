@@ -9,6 +9,7 @@ from models.i3d import I3D
 from data_analysis.generate_plots import generate_output_files
 # from models.wide_resnet import generate_model
 # from models.resnext import generate_model
+from models.test import Model
 
 from train_help import *
 
@@ -26,7 +27,9 @@ if __name__ == "__main__":
     elif GLOBALS.CONFIG["model"] == "lstm":
         network = LSTM()
     else:
-        network = generate_model(18, n_input_channels=1, n_classes=len(GLOBALS.CONFIG["classes"]))
+        network = generate_model(10, n_input_channels=1, n_classes=len(GLOBALS.CONFIG["classes"]))
+
+    #network = Model()
 
     model, optimizer, scheduler, loss_function, train_loader, test_loader = initialize(args, network)
 

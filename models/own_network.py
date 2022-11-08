@@ -8,6 +8,7 @@ from models.resnet_3d import generate_model
 # from models.monai_resnet import resnet10
 
 from monai.networks.nets import EfficientNetBN, ResNet, resnet10
+from models.lstm import LSTM
 
 
 def create_pretrained_medical_resnet(
@@ -48,61 +49,34 @@ class CSANet(nn.Module):
         :param num_subspaces: (int) number of subspaces that an image can be in
         :param embedding_size: (int) dimension of embedding feature
         """
-        # TODO: cache extracted features using resnes before feeding to the network
         super(CSANet, self).__init__()
         self.num_subspaces = num_subspaces
         self.embedding_size = embedding_size
         # we use reset18 as per the paper
         weights_path = "/mnt/5gb_ssd/sepehr/Repos/mpi-sunnybrook/models/pretrain_weights/resnet_10_23dataset.pth"
         # self.resnet10 = create_pretrained_medical_resnet(weights_path)
-        self.resnet18 = generate_model(34, n_input_channels=1)
-        self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-5])
-        # disable gradient computation
-        for param in self.resnet18.parameters():
-            param.requires_grad = False
-
-        # embedding layer that embed image's feature from resnet to embedding size(64)
-        self.embedding_layer = nn.Linear(512, self.embedding_size)
-        # learnable masks that have the same dimensionality as the image feature vector (64)
-        self.masks = nn.Parameter(data=torch.Tensor(self.num_subspaces, self.embedding_size), requires_grad=True)
-        # init weights, without it we will encounter nan when calculate loss
-        # torch.nn.init.xavier_uniform(self.embedding_layer.weight)
-        # torch.nn.init.xavier_uniform(self.masks)
-        self.fc1 = nn.Linear(1024, 128)
+        self.resnet18 = generate_model(10, n_input_channels=1)
+        self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-6])
+        self.fc1 = nn.Linear(512, 128)
         self.bn1 = nn.BatchNorm1d(128)
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=0.5)
-        self.fc2 = nn.Linear(128, 2)
+        self.fc2 = nn.Linear(128, 10)
+        self.fc3 = nn.Linear(10+7, 1)
+        self.sigmoid = nn.Sigmoid()
 
-    def forward(self, str_image, rst_image, stat_features):
-        # # extract img's features
-        # str_feature = self.resnet18(str_image)
-        # str_feature = self.embedding_layer(str_feature.reshape(str_feature.shape[0], -1))
-        #
-        # rst_feature = self.resnet18(rst_image)
-        # rst_feature = self.embedding_layer(rst_feature.reshape(str_feature.shape[0], -1))
-        #
-        # out = torch.cat((str_feature, rst_feature), -1)
-        # # out = out.view(out.size(0), -1)
-        # #breakpoint()
-        # out = self.fc(out)
+    def forward(self, str_image, rst_image, x_stats):
+
         str_feature = self.resnet18(str_image)
         rst_feature = self.resnet18(rst_image)
-        out = torch.cat((str_feature.reshape(str_feature.shape[0], -1), rst_feature.reshape(str_feature.shape[0], -1)),
-                        -1)
-        # out = self.dropout(out)
+        out = torch.cat((str_feature.reshape(str_feature.shape[0], -1), rst_feature.reshape(str_feature.shape[0], -1)),-1)
         out = self.fc1(out)
-        # out = self.bn1(out)
         out = self.relu(out)
-        # out = self.dropout(out)
+        out = self.dropout(out)
         out = self.fc2(out)
-        #breakpoint()
-
-        # # repeat these features (num_subspaces times) to perform multiply with masks
-        # # TODO: check if there is a better way to do the multiplication without repeat
-        # feature = feature.repeat(1, self.num_subspaces)
-        # feature = feature.reshape(-1, self.num_subspaces, self.embedding_size)
-        # feature = self.masks * feature
+        out = torch.cat((out, x_stats), dim=-1)
+        out = self.fc3(out)
+        out = self.sigmoid(out)
 
         return out
 

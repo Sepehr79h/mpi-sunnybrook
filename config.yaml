@@ -1,4 +1,4 @@
-num_epochs: 200
+num_epochs: 300
 learning_rate: 0.001
 momentum: 0.9
 weight_decay: 0
@@ -15,7 +15,7 @@ max_frame_size: 29
 width_crop_size: 20
 height_crop_size: 20
 split_type: "balanced"
-model: "resnet_3d"
+model: "own_network"
 
 
 #station_info:

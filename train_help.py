@@ -4,6 +4,8 @@ import yaml
 import torch
 import time
 import torch.backends.cudnn as cudnn
+from sklearn.metrics import balanced_accuracy_score
+from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import global_vars as GLOBALS
 import numpy as np
@@ -118,7 +120,7 @@ def initialize(args: APNamespace, network):
                                     momentum=GLOBALS.CONFIG["momentum"], weight_decay=GLOBALS.CONFIG["weight_decay"],
                                     dampening=GLOBALS.CONFIG["dampening"])
     elif GLOBALS.CONFIG["optimizer"] == "Adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=GLOBALS.CONFIG["learning_rate"])
+        optimizer = torch.optim.Adam(model.parameters(), lr=GLOBALS.CONFIG["learning_rate"], weight_decay=GLOBALS.CONFIG["weight_decay"])
 
     if GLOBALS.CONFIG["lr_scheduler"] == "ReduceLROnPlateau":
         scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
@@ -158,6 +160,8 @@ def evaluate(test_loader, model, loss_function):
         for sample in test_loader:
             model.eval()
             images = sample["image"]
+            stress_image = sample["stress_image"]
+            rest_image = sample["rest_image"]
             stat_features = sample["stat_features"]
             labels = sample["impression"]
             image_list = sample["image_list"]
@@ -167,15 +171,23 @@ def evaluate(test_loader, model, loss_function):
                     image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
                     image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 images = images.to(device="cuda", dtype=torch.float)
+                stress_image = stress_image.to(device="cuda", dtype=torch.float)
+                rest_image = rest_image.to(device="cuda", dtype=torch.float)
                 stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
             images = torch.unsqueeze(images, dim=1)
+            stress_image = torch.unsqueeze(stress_image, dim=1)
+            rest_image = torch.unsqueeze(rest_image, dim=1)
 
+            #breakpoint()
             if GLOBALS.CONFIG["model"] == "own_network":
-                outputs = model(image_list[0], image_list[1], stat_features)
+                #outputs = model(image_list[0], image_list[1], stat_features)
+                outputs = model(stress_image, rest_image, stat_features)
+                #outputs = model(stress_image, stat_features)
             else:
                 outputs = model(images, stat_features)
+
             loss = loss_function(outputs.squeeze(), labels.float())
 
             predictions = torch.where(outputs > 0.5, 1, 0).squeeze() #torch.argmax(outputs, 1)
@@ -222,26 +234,43 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             # breakpoint()
             model.train()
             images = sample["image"]
+            stress_image = sample["stress_image"]
+            rest_image = sample["rest_image"]
             stat_features = sample["stat_features"]
             labels = sample["impression"]
             image_list = sample["image_list"]
+
+            # import matplotlib.pyplot as plt
+            # for j in range(0, sample["image"].shape[1]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(sample["image"][0, j, :, :], cmap='gray')
+            # plt.show()
+            # breakpoint()
 
             if torch.cuda.is_available():
                 for i in range(0, len(image_list)):
                     image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
                     image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 images = images.to(device="cuda", dtype=torch.float)
+                stress_image = stress_image.to(device="cuda", dtype=torch.float)
+                rest_image = rest_image.to(device="cuda", dtype=torch.float)
                 stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
+            #breakpoint()
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
+            stress_image = torch.unsqueeze(stress_image, dim=1)
+            rest_image = torch.unsqueeze(rest_image, dim=1)
 
+            #breakpoint()
             if GLOBALS.CONFIG["model"] == "own_network":
-                outputs = model(image_list[0], image_list[1], stat_features)
+                outputs = model(stress_image, rest_image, stat_features)
+                #outputs = model(stress_image, stat_features)
             else:
                 outputs = model(images, stat_features)
-
+            #breakpoint()
+            #breakpoint()
             loss = loss_function(outputs.squeeze(), labels.float())
 
             loss.backward()
@@ -277,7 +306,8 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "Train Loss: {:.6f} | ".format(epoch_train_loss) +
             "Train Accuracy: {:.6f} | ".format(epoch_train_accuracy) +
             "Test Loss: {:.6f} | ".format(epoch_test_loss) +
-            "Test Accuracy: {:.6f}  ".format(epoch_test_accuracy))
+            "Test Accuracy: {:.6f} | ".format(epoch_test_accuracy) +
+            "Balanced Test Accuracy: {:.6f}  ".format(balanced_accuracy_score(labels_list, predictions_list)))
 
         train_stats = {
             "train_loss_list": train_loss_list,

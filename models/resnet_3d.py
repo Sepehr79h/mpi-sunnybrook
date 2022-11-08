@@ -142,14 +142,14 @@ class ResNet(nn.Module):
                                        layers[2],
                                        shortcut_type,
                                        stride=2)
-        self.layer4 = self._make_layer(block,
-                                       block_inplanes[3],
-                                       layers[3],
-                                       shortcut_type,
-                                       stride=2)
+        # self.layer4 = self._make_layer(block,
+        #                                block_inplanes[3],
+        #                                layers[3],
+        #                                shortcut_type,
+        #                                stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
-        self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
+        self.fc = nn.Linear(block_inplanes[-1] * block.expansion, n_classes)
         # # self.dropout = nn.Dropout(p=0.2)
         self.dropout_fc = nn.Dropout(p=0.5)
         # self.fc3 = nn.Linear(n_classes + 2, n_classes)
@@ -220,7 +220,7 @@ class ResNet(nn.Module):
         # x = self.dropout(x)
         x = self.layer3(x)
         # x = self.dropout(x)
-        x = self.layer4(x)
+        #x = self.layer4(x)
 
         x = self.avgpool(x)
 
@@ -254,7 +254,7 @@ def generate_model(model_depth, **kwargs):
     assert model_depth in [10, 18, 34, 50, 101, 152, 200]
 
     if model_depth == 10:
-        model = ResNet(BasicBlock, [1, 1, 1, 1], [64, 128, 256, 512], **kwargs)
+        model = ResNet(BasicBlock, [1, 1, 1], [64, 128, 256], **kwargs)
     elif model_depth == 18:
         model = ResNet(BasicBlock, [2, 2, 2, 2], [64, 128, 256, 512], **kwargs)
         #print(model)
