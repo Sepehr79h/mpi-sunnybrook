@@ -59,6 +59,13 @@ class MPIDataset(Dataset):
             #         # breakpoint()
             #
             # else:
+            # import matplotlib.pyplot as plt
+            # for j in range(0, sample["image"].shape[0]):
+            #     plt.subplot(10, 10, j + 1)
+            #     plt.imshow(sample["image"][j, :, :], cmap='gray')
+            # plt.show()
+            # breakpoint()
+
             sample["image"] = np.transpose(sample["image"], (1, 2, 0))
             sample["image"] = self.transform(sample["image"])
 

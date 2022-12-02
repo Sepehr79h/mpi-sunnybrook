@@ -75,6 +75,9 @@ class CSANet(nn.Module):
         out = self.dropout(out)
         out = self.fc2(out)
         out = torch.cat((out, x_stats), dim=-1)
+
+        #out = self.dropout(out)
+
         out = self.fc3(out)
         out = self.sigmoid(out)
 

@@ -15,6 +15,7 @@ import torch.nn.functional as F
 from argparse import Namespace as APNamespace, ArgumentParser
 from pathlib import Path
 from data import load_data
+from sklearn.metrics import f1_score
 from torchsummary import summary
 
 
@@ -128,9 +129,9 @@ def initialize(args: APNamespace, network):
     loss_functions = {"cross_entropy": torch.nn.CrossEntropyLoss(), "binary_cross_entropy": torch.nn.BCELoss()}
     loss_function = loss_functions[GLOBALS.CONFIG["loss_function"]]
 
-    train_loader, test_loader = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
+    train_loader, test_loader, weights = load_data(dicom_path, labels_path, station_data_path, GLOBALS.CONFIG["station_info"])
 
-    return model, optimizer, scheduler, loss_function, train_loader, test_loader
+    return model, optimizer, scheduler, loss_function, train_loader, test_loader, weights
 
 
 def get_accuracy(predictions, labels):
@@ -189,8 +190,11 @@ def evaluate(test_loader, model, loss_function):
                 outputs = model(images, stat_features)
 
             loss = loss_function(outputs.squeeze(), labels.float())
+            #loss = loss_function(outputs, labels)
 
-            predictions = torch.where(outputs > 0.5, 1, 0).squeeze() #torch.argmax(outputs, 1)
+            predictions = torch.where(outputs > 0.5, 1, 0).squeeze()
+            #predictions = torch.argmax(outputs, 1)
+            #breakpoint()
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
 
             # print(loss,accuracy)
@@ -207,10 +211,11 @@ def evaluate(test_loader, model, loss_function):
         return epoch_loss, epoch_accuracy, predictions_list, labels_list
 
 
-def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path, scheduler=None):
+def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs, out_path, scheduler=None, weights=None):
     """
     Description: This method performs the training loop and saves all relevant training stats
 
+    :param weights: Class weights for BCE Loss
     :param model: The machine learning model to be used
     :param optimizer: The optimizer to be used
     :param loss_function: The loss function to be used
@@ -221,6 +226,9 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
     :param scheduler: The scheduler to be used
     :return: Training stats obtained by the training loop
     """
+    #loss_function = torch.nn.CrossEntropyLoss()
+    #breakpoint()
+    #loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(weights).cuda())
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     train_stats = {}
     for epoch in range(0, num_epochs, 1):
@@ -272,12 +280,14 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             #breakpoint()
             #breakpoint()
             loss = loss_function(outputs.squeeze(), labels.float())
+            #loss = loss_function(outputs, labels)
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-            predictions = torch.where(outputs > 0.5, 1, 0).squeeze() #torch.argmax(outputs, 1)
+            predictions = torch.where(outputs > 0.5, 1, 0).squeeze()
+            #predictions = torch.argmax(outputs, 1)
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
 
             running_loss += loss.item() * images.shape[0]
@@ -304,10 +314,11 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "Time Left: {:.3f}s | ".format(
                 (time_end - time_start) * (num_epochs - epoch)) +
             "Train Loss: {:.6f} | ".format(epoch_train_loss) +
-            "Train Accuracy: {:.6f} | ".format(epoch_train_accuracy) +
+            "Train Acc: {:.6f} | ".format(epoch_train_accuracy) +
             "Test Loss: {:.6f} | ".format(epoch_test_loss) +
-            "Test Accuracy: {:.6f} | ".format(epoch_test_accuracy) +
-            "Balanced Test Accuracy: {:.6f}  ".format(balanced_accuracy_score(labels_list, predictions_list)))
+            "Test Acc: {:.6f} | ".format(epoch_test_accuracy) +
+            "Balanced Test Acc: {:.6f} | ".format(balanced_accuracy_score(labels_list, predictions_list)) +
+            "F1 Score: {:.6f}  ".format(f1_score(labels_list, predictions_list)))
 
         train_stats = {
             "train_loss_list": train_loss_list,

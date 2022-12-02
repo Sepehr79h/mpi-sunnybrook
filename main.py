@@ -31,12 +31,12 @@ if __name__ == "__main__":
 
     #network = Model()
 
-    model, optimizer, scheduler, loss_function, train_loader, test_loader = initialize(args, network)
+    model, optimizer, scheduler, loss_function, train_loader, test_loader, weights = initialize(args, network)
 
     print('~~Initialization Complete. Beginning training~~')
 
     train_stats = train(model, optimizer, loss_function, train_loader, test_loader, GLOBALS.CONFIG["num_epochs"],
-                        args.output, scheduler)
+                        args.output, scheduler, weights)
 
     print('~~Training Complete. Generating Output Files~~')
 

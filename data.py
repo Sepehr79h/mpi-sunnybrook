@@ -20,6 +20,7 @@ from sklearn import preprocessing
 from skimage.morphology.tests.test_gray import im
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.utils.class_weight import compute_class_weight
 from torch import nn
 from torch.utils.data import WeightedRandomSampler
 
@@ -363,8 +364,9 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     transform_train = transforms.Compose(
         [
             transforms.ToTensor(),
-            #transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
+            # transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
             transforms.RandomHorizontalFlip(),
+            # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
             transforms.Normalize(data_stats["mean"], data_stats["std"]),
             # transforms.RandomRotation(30),
             # transforms.RandomAffine(0, translate=(0.01, 0.01))
@@ -387,13 +389,15 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     print(f"Labels: {labels_unique}, Distribution: {counts}")
 
     train_dataset, test_dataset = get_dataset_splits(labels, full_dataset_train, full_dataset_test)
+
     sampler = get_sampler(train_dataset, labels)
+    weights = get_class_weights(train_dataset, labels)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False,
                                                sampler=sampler)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=GLOBALS.CONFIG["batch_size"], shuffle=False)
 
-    return train_loader, test_loader
+    return train_loader, test_loader, weights
 
 
 def get_dataset_splits(labels, dataset_train, dataset_test):
@@ -423,6 +427,18 @@ def get_dataset_splits(labels, dataset_train, dataset_test):
     #     test_split = len(dataset) - train_split
     #     train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
     #     return train_dataset, test_dataset
+
+
+def get_class_weights(train_dataset, labels):
+    y_train_indices = train_dataset.indices
+    y_train = [labels.iloc[[i]]["Impression"].iloc[0] for i in y_train_indices]
+    class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y_train), y=y_train)
+
+    #pos_weight = sum(y_train)/len(y_train)
+    pos_weight = (np.array(y_train)==0.).sum()/np.array(y_train).sum()
+    #breakpoint()
+    #breakpoint()
+    return pos_weight
 
 
 def get_sampler(train_dataset, labels):
