@@ -1,22 +1,24 @@
-num_epochs: 300
-learning_rate: 0.001
+num_epochs: 100
+learning_rate: 0.001 #0.001 #0.00001 #0.1 #0.001
 momentum: 0.9
-weight_decay: 0.0001
+weight_decay: 0.0001 #0 #0.0001
 dampening: 0
 optimizer: "Adam"
 lr_scheduler: ""
 sampler: ""
 loss_function: "binary_cross_entropy" #"cross_entropy"
-batch_size: 64
+batch_size: 64 #4 #64
 train_split_percentage: 0.8
 classes: [1, 3]
 max_images_per_class: 5000
 max_frame_size: 29
-width_crop_size: 20
-height_crop_size: 20
+width_crop_size: 20 #18 #20
+height_crop_size: 20 #18 #20
 split_type: "balanced"
-model: "own_network"
+model: "BaselineModel"
 
+categorical_features: ["patient_sex", "Stress Type"]
+numerical_features: ["Post-Stress LVEF", "Resting LVEF", "patient_age"] #["patient_age"] #["Post-Stress LVEF", "Resting LVEF", "patient_age"]
 
 #station_info:
 #  DSPECT:

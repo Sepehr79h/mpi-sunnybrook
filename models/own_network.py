@@ -16,7 +16,7 @@ def create_pretrained_medical_resnet(
         model_constructor: callable = resnet10,
         spatial_dims: int = 3,
         n_input_channels: int = 1,
-        num_classes: int = 2,
+        num_classes: int = 1,
         **kwargs_monai_resnet: Any):
     """This si specific constructor for MONAI ResNet module loading MedicalNEt weights.
     See:
@@ -53,29 +53,37 @@ class CSANet(nn.Module):
         self.num_subspaces = num_subspaces
         self.embedding_size = embedding_size
         # we use reset18 as per the paper
-        weights_path = "/mnt/5gb_ssd/sepehr/Repos/mpi-sunnybrook/models/pretrain_weights/resnet_10_23dataset.pth"
-        # self.resnet10 = create_pretrained_medical_resnet(weights_path)
+        #weights_path = "/mnt/5gb_ssd/sepehr/Repos/mpi-sunnybrook/models/pretrain_weights/resnet_10_23dataset.pth"
+        #self.medical_resnet = create_pretrained_medical_resnet(weights_path)
+        #self.medical_resnet = nn.Sequential(*list(self.medical_resnet.children())[:-1])
+        #breakpoint()
         self.resnet18 = generate_model(10, n_input_channels=1)
         self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-6])
+        #breakpoint()
+        #self.fc1 = nn.Linear(1024, 128)
         self.fc1 = nn.Linear(512, 128)
         self.bn1 = nn.BatchNorm1d(128)
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=0.5)
+        #self.fc2 = nn.Linear(128, 10)
+        #self.fc3 = nn.Linear(10+7, 1)
         self.fc2 = nn.Linear(128, 10)
         self.fc3 = nn.Linear(10+7, 1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, str_image, rst_image, x_stats):
-
-        str_feature = self.resnet18(str_image)
-        rst_feature = self.resnet18(rst_image)
+        #breakpoint()
+        str_feature = self.resnet18(str_image) #self.medical_resnet(str_image) #self.resnet18(str_image)
+        rst_feature = self.resnet18(rst_image) #self.medical_resnet(rst_image) #self.resnet18(rst_image)
+        #breakpoint()
         out = torch.cat((str_feature.reshape(str_feature.shape[0], -1), rst_feature.reshape(str_feature.shape[0], -1)),-1)
         out = self.fc1(out)
         out = self.relu(out)
-        out = self.dropout(out)
+        #out = self.dropout(out)
         out = self.fc2(out)
         out = torch.cat((out, x_stats), dim=-1)
 
+        #out = self.relu(out)
         #out = self.dropout(out)
 
         out = self.fc3(out)

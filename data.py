@@ -302,8 +302,11 @@ def process_data(station_data_dict, labels, station_info):
     le = preprocessing.LabelEncoder()
     targets['Impression'] = le.fit_transform(targets['Impression'])
 
-    df_categorical = get_df_categorical(df_stat_features[["patient_sex", "Stress Type"]])
-    df_numerical = get_df_numerical(df_stat_features[["Post-Stress LVEF", "Resting LVEF", "patient_age"]])
+    numerical_features = GLOBALS.CONFIG["numerical_features"]
+    categorical_features = GLOBALS.CONFIG["categorical_features"]
+    print(f"Numerical features: {numerical_features}, Categorical Features: {categorical_features}")
+    df_categorical = get_df_categorical(df_stat_features[categorical_features])
+    df_numerical = get_df_numerical(df_stat_features[numerical_features])
     df_stat_features = pd.concat([df_stat_features["Study_ID"], df_categorical, df_numerical], axis=1)
     df_stat_features = df_stat_features.set_index('Study_ID')
     # breakpoint()
@@ -366,6 +369,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
             transforms.ToTensor(),
             # transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(degrees=30),
             # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
             transforms.Normalize(data_stats["mean"], data_stats["std"]),
             # transforms.RandomRotation(30),
@@ -387,6 +391,7 @@ def load_data(dicom_path, labels_path, station_data_path, station_info):
     labels_unique, counts = np.unique(labels["Impression"], return_counts=True)
     print(f"Dataset Size: {len(full_dataset_test)}")
     print(f"Labels: {labels_unique}, Distribution: {counts}")
+    print(f"Image Input Shape: {list(inputs[0].values())[0]['series_images'].shape}")
 
     train_dataset, test_dataset = get_dataset_splits(labels, full_dataset_train, full_dataset_test)
 

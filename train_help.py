@@ -182,16 +182,17 @@ def evaluate(test_loader, model, loss_function):
             rest_image = torch.unsqueeze(rest_image, dim=1)
 
             #breakpoint()
-            if GLOBALS.CONFIG["model"] == "own_network":
-                #outputs = model(image_list[0], image_list[1], stat_features)
+            if GLOBALS.CONFIG["model"] == "BaselineModel":
                 outputs = model(stress_image, rest_image, stat_features)
-                #outputs = model(stress_image, stat_features)
-            else:
+                # outputs = model(stress_image, stat_features)
+            elif GLOBALS.CONFIG["model"] == "ResNet3D":
                 outputs = model(images, stat_features)
+            else:
+                outputs = model(images)
 
             loss = loss_function(outputs.squeeze(), labels.float())
             #loss = loss_function(outputs, labels)
-
+            #breakpoint()
             predictions = torch.where(outputs > 0.5, 1, 0).squeeze()
             #predictions = torch.argmax(outputs, 1)
             #breakpoint()
@@ -272,16 +273,19 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             rest_image = torch.unsqueeze(rest_image, dim=1)
 
             #breakpoint()
-            if GLOBALS.CONFIG["model"] == "own_network":
+            if GLOBALS.CONFIG["model"] == "BaselineModel":
                 outputs = model(stress_image, rest_image, stat_features)
                 #outputs = model(stress_image, stat_features)
-            else:
+            elif GLOBALS.CONFIG["model"] == "ResNet3D":
                 outputs = model(images, stat_features)
+            else:
+                outputs = model(images)
+            #breakpoint()
             #breakpoint()
             #breakpoint()
             loss = loss_function(outputs.squeeze(), labels.float())
             #loss = loss_function(outputs, labels)
-
+            #breakpoint()
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()

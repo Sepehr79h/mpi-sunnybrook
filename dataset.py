@@ -42,7 +42,7 @@ class MPIDataset(Dataset):
             #     plt.subplot(10, 10, j + 1)
             #     plt.imshow(sample["image"][j, :, :], cmap='gray')
             # plt.show()
-            #breakpoint()
+            # breakpoint()
 
             # if GLOBALS.CONFIG["model"] == "own_network":
             #     for i in range(0, len(sample["image_list"])):

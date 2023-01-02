@@ -1,16 +1,17 @@
-from models.cnn_3d import CNNModel
-from models.own_network import CSANet
-from models.lstm import LSTM
-from models.resnet_3d import generate_model
-# from models.densenet_3d import generate_model
-from models.siamese import SiameseNetwork
-from models.s3d import S3D
-from models.i3d import I3D
-from data_analysis.generate_plots import generate_output_files
-# from models.wide_resnet import generate_model
-# from models.resnext import generate_model
-from models.test import Model
+# from models.cnn_3d import CNNModel
+# from models.own_network import CSANet
+# from models.lstm import LSTM
+# from models.resnet_3d import generate_model
+# # from models.densenet_3d import generate_model
+# from models.siamese import SiameseNetwork
+# from models.s3d import S3D
+# from models.i3d import I3D
+# # from models.wide_resnet import generate_model
+# # from models.resnext import generate_model
+# from models.test import Model
 
+from data_analysis.generate_plots import generate_output_files
+from models import *
 from train_help import *
 
 if __name__ == "__main__":
@@ -22,14 +23,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     output_path = build_paths(args)
 
-    if GLOBALS.CONFIG["model"] == "own_network":
-        network = CSANet()
-    elif GLOBALS.CONFIG["model"] == "lstm":
-        network = LSTM()
-    else:
-        network = generate_model(10, n_input_channels=1, n_classes=len(GLOBALS.CONFIG["classes"]))
+    network = NetworkRetriever.get_network(GLOBALS.CONFIG["model"])
 
-    #network = Model()
+    print('~~Beginning initialization~~')
 
     model, optimizer, scheduler, loss_function, train_loader, test_loader, weights = initialize(args, network)
 
