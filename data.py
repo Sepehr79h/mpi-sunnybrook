@@ -131,8 +131,10 @@ def clean_data(station_data_dict, labels, station_info):
             patient_age = raw_inputs[study_id]["PatientAge"]
 
             df_patient = labels.loc[labels['Study_ID'] == int(study_id)]
+            # df_patient = df_patient[["Study_ID", "Impression", "Stress Type"]]
             impression = df_patient["Impression"]
 
+            #breakpoint()
             try:
                 df_patient.astype(float)
                 is_correct_type = True
@@ -214,6 +216,8 @@ def process_data(station_data_dict, labels, station_info):
         "mean": 0
     }
 
+    # Convert all label 4 patients (high risk) to label 3
+    labels.loc[labels['Impression'] == 4, 'Impression'] = 3
     station_data_dict_clean = clean_data(station_data_dict, labels, station_info)
     max_image_frames, max_image_width, max_image_height = get_max_image_frames(station_data_dict_clean, station_info)
 

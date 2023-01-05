@@ -18,7 +18,8 @@ split_type: "balanced"
 model: "BaselineModel"
 
 categorical_features: ["patient_sex", "Stress Type"]
-numerical_features: ["Post-Stress LVEF", "Resting LVEF", "patient_age"] #["patient_age"] #["Post-Stress LVEF", "Resting LVEF", "patient_age"]
+numerical_features: ["Post-Stress LVEF", "Resting LVEF", "patient_age"]
+#["patient_age"] #["Post-Stress LVEF", "Resting LVEF", "patient_age"]
 
 #station_info:
 #  DSPECT:
