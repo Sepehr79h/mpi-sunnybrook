@@ -117,7 +117,18 @@ def clean_data(station_data_dict, labels, station_info):
         "3": 0,
         "4": 0
     }
-    count = 0
+
+    #count, count_frame_filter = 0, 0
+    filter_counts = {
+        "total": 0,
+        "count_both_rst_str": 0,
+        "count_patient_age": 0,
+        "count_patient_sex": 0,
+        "count_impression": 0,
+        "count_lvef_stress_type": 0,
+        "count_frame_filter": 0,
+    }
+
     is_correct_type = True
     for station_name in station_info.keys():
         raw_inputs = station_data_dict[station_name]
@@ -142,6 +153,17 @@ def clean_data(station_data_dict, labels, station_info):
                 # print(df_patient)
                 is_correct_type = False
 
+            if not re.search(rf"{combined_pattern}", "".join(images.keys())):
+                filter_counts["count_both_rst_str"] += 1
+            elif not patient_age:
+                filter_counts["count_patient_age"] += 1
+            elif not patient_sex:
+                filter_counts["count_patient_sex"] += 1
+            elif impression.empty or set() == set(GLOBALS.CONFIG["classes"]).intersection(set(impression.unique())):
+                filter_counts["count_impression"] += 1
+            elif not is_correct_type or df_patient.isnull().values.any():
+                filter_counts["count_lvef_stress_type"] += 1
+
             # Clean Data
             if not re.search(rf"{combined_pattern}", "".join(images.keys())) \
                     or not patient_age \
@@ -152,7 +174,7 @@ def clean_data(station_data_dict, labels, station_info):
                     or not is_correct_type \
                     or df_patient.isnull().values.any():
                 data[station_name].pop(study_id)
-                count += 1
+                filter_counts["total"] += 1
                 continue
 
             for i in range(len(desired_image_patterns)):
@@ -160,13 +182,15 @@ def clean_data(station_data_dict, labels, station_info):
                     image_name = re.search(desired_image_patterns[i], "".join(images.keys())).group()
                     if images[image_name].shape[0] > GLOBALS.CONFIG["max_frame_size"]:
                         # print(station_name, images[image_name].shape)
-                        count += 1
+                        filter_counts["count_frame_filter"] += 1
+                        filter_counts["total"] += 1
                         data[station_name].pop(study_id)
                         break
             else:
                 class_count[str(impression.unique()[0])] += 1
 
-    print(f"Filtered {count} examples during data cleaning.")
+    print(f"Filter Counts: {filter_counts}")
+    #print(f"Filtered {count} examples during data cleaning.")
     # breakpoint()
     return data
 
