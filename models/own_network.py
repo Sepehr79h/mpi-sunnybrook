@@ -59,6 +59,7 @@ class CSANet(nn.Module):
         #breakpoint()
         self.resnet18 = generate_model(10, n_input_channels=1)
         self.resnet18 = nn.Sequential(*list(self.resnet18.children())[:-6])
+
         #breakpoint()
         #self.fc1 = nn.Linear(1024, 128)
         self.fc1 = nn.Linear(512, 128)

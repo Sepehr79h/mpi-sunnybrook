@@ -1,46 +1,42 @@
-num_epochs: 100
+num_epochs: 50
 learning_rate: 0.001 #0.001 #0.00001 #0.1 #0.001
 momentum: 0.9
 weight_decay: 0.0001 #0 #0.0001
 dampening: 0
 optimizer: "Adam"
 lr_scheduler: ""
-sampler: ""
+sampler: "WeightedRandomSampler"
 loss_function: "binary_cross_entropy" #"cross_entropy"
-batch_size: 64 #4 #64
+batch_size: 16 #16 #4 #64
 train_split_percentage: 0.8
 classes: [1, 3]
 max_images_per_class: 5000
-max_frame_size: 29
+max_frame_size: 60 #500 #29
 width_crop_size: 20 #18 #20
 height_crop_size: 20 #18 #20
 split_type: "balanced"
-model: "BaselineModel"
+model: "TransferModel" #"BaselineModel"
+station: DSPECT #DSPECT #"SPECT"
 
 categorical_features: ["patient_sex", "Stress Type"]
 numerical_features: ["Post-Stress LVEF", "Resting LVEF", "patient_age"]
 #["patient_age"] #["Post-Stress LVEF", "Resting LVEF", "patient_age"]
 
-#station_info:
-#  DSPECT:
-#    - RST._U_TF_SD._SA
-#    - RST._S_TF_SD._SA
-#    - STR._U_TF_SD._SA
-#    - STR._S_TF_SD._SA
-
-
-
 station_info:
-  BrightView:
-    - SAX-STR
-    - SAX-RST
-  PHLPSSCT001AG00:
-    - SAX-AST-AC-STR
-    - SAX-AST-AC-RST
-  P3000XP328:
-    - SAX-STR
-    - SAX-RST
-#  DSPECT:
-#    - STR._S_TF_SD._SA
-#    - RST._S_TF_SD._SA
+  DSPECT:
+    - RST._U_TF_SD._SA
+    - RST._S_TF_SD._SA
+    - STR._U_TF_SD._SA
+    - STR._S_TF_SD._SA
+
+#station_info:
+#  BrightView:
+#    - SAX-STR
+#    - SAX-RST
+#  PHLPSSCT001AG00:
+#    - SAX-AST-AC-STR
+#    - SAX-AST-AC-RST
+#  P3000XP328:
+#    - SAX-STR
+#    - SAX-RST
 

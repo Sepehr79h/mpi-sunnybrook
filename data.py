@@ -119,6 +119,7 @@ def clean_data(station_data_dict, labels, station_info):
     }
 
     #count, count_frame_filter = 0, 0
+    frames = []
     filter_counts = {
         "total": 0,
         "count_both_rst_str": 0,
@@ -145,7 +146,6 @@ def clean_data(station_data_dict, labels, station_info):
             # df_patient = df_patient[["Study_ID", "Impression", "Stress Type"]]
             impression = df_patient["Impression"]
 
-            #breakpoint()
             try:
                 df_patient.astype(float)
                 is_correct_type = True
@@ -244,6 +244,7 @@ def process_data(station_data_dict, labels, station_info):
     labels.loc[labels['Impression'] == 4, 'Impression'] = 3
     station_data_dict_clean = clean_data(station_data_dict, labels, station_info)
     max_image_frames, max_image_width, max_image_height = get_max_image_frames(station_data_dict_clean, station_info)
+    frame_list = []
 
     for station_name in station_info.keys():
         raw_inputs = station_data_dict_clean[station_name]
@@ -264,11 +265,14 @@ def process_data(station_data_dict, labels, station_info):
 
             # Process Data
             stacked_images = []
+
             for i in range(len(desired_image_patterns)):
                 image_name = re.search(desired_image_patterns[i], "".join(images.keys())).group()
                 total_pixels += images[image_name].size
                 sum_x += np.sum(images[image_name])
                 sum_x_sq += np.sum(np.square(images[image_name]))
+
+                frame_list += [images[image_name].shape[0]]
 
                 if GLOBALS.CONFIG["max_frame_size"]:
                     pad_size_frames = max(0, GLOBALS.CONFIG["max_frame_size"] - images[image_name].shape[0])
@@ -295,10 +299,19 @@ def process_data(station_data_dict, labels, station_info):
             # breakpoint()
             processed_data[study_id]["image_list"] = stacked_images
             processed_data[study_id]["series_images"] = np.vstack(stacked_images)
-            processed_data[study_id]["stress_image"] = stacked_images[0]
-            processed_data[study_id]["rest_image"] = stacked_images[1]
+            if GLOBALS.CONFIG["station"]=="SPECT":
+                processed_data[study_id]["stress_image"] = stacked_images[0]
+                processed_data[study_id]["rest_image"] = stacked_images[1]
+            elif GLOBALS.CONFIG["station"]=="DSPECT":
+                processed_data[study_id]["rest_u_image"] = stacked_images[0]
+                processed_data[study_id]["rest_s_image"] = stacked_images[1]
+                processed_data[study_id]["stress_u_image"] = stacked_images[2]
+                processed_data[study_id]["stress_s_image"] = stacked_images[3]
 
-            # breakpoint()
+
+
+
+
 
             # import matplotlib.pyplot as plt
             # for j in range(0, processed_data[study_id]["stress_image"].shape[0]):
@@ -323,6 +336,12 @@ def process_data(station_data_dict, labels, station_info):
             # breakpoint()
 
         inputs.update(processed_data)
+
+    # breakpoint()
+    # import matplotlib.pyplot as plt
+    # plt.hist(frame_list)
+    # plt.savefig("dspect_frame_histo.png")
+    # breakpoint()
 
     data_stats["mean"] = sum_x / total_pixels
     data_stats["std"] = np.sqrt(sum_x_sq / total_pixels + data_stats["mean"] ** 2)

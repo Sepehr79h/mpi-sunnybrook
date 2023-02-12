@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import yaml
@@ -17,6 +18,8 @@ from pathlib import Path
 from data import load_data
 from sklearn.metrics import f1_score
 from torchsummary import summary
+
+import data_analysis.generate_output
 
 
 def load_conf(conf_path):
@@ -142,6 +145,7 @@ def get_accuracy(predictions, labels):
     :param labels: All labels for the dataset
     :return: The accuracy of the predictions made by the model
     """
+    #breakpoint()
     return np.sum(predictions == labels) / predictions.shape[0]
 
 
@@ -161,8 +165,18 @@ def evaluate(test_loader, model, loss_function):
         for sample in test_loader:
             model.eval()
             images = sample["image"]
-            stress_image = sample["stress_image"]
-            rest_image = sample["rest_image"]
+            # stress_image = sample["stress_image"]
+            # rest_image = sample["rest_image"]
+
+            if GLOBALS.CONFIG["station"] == "SPECT":
+                stress_image = sample["stress_image"]
+                rest_image = sample["rest_image"]
+            elif GLOBALS.CONFIG["station"] == "DSPECT":
+                stress_s_image = sample["stress_s_image"]
+                stress_u_image = sample["stress_u_image"]
+                rest_s_image = sample["rest_s_image"]
+                rest_u_image = sample["rest_u_image"]
+
             stat_features = sample["stat_features"]
             labels = sample["impression"]
             image_list = sample["image_list"]
@@ -172,14 +186,26 @@ def evaluate(test_loader, model, loss_function):
                     image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
                     image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 images = images.to(device="cuda", dtype=torch.float)
-                stress_image = stress_image.to(device="cuda", dtype=torch.float)
-                rest_image = rest_image.to(device="cuda", dtype=torch.float)
+                if GLOBALS.CONFIG["station"] == "SPECT":
+                    stress_image = stress_image.to(device="cuda", dtype=torch.float)
+                    rest_image = rest_image.to(device="cuda", dtype=torch.float)
+                elif GLOBALS.CONFIG["station"] == "DSPECT":
+                    stress_s_image = stress_s_image.to(device="cuda", dtype=torch.float)
+                    stress_u_image = stress_u_image.to(device="cuda", dtype=torch.float)
+                    rest_s_image = rest_s_image.to(device="cuda", dtype=torch.float)
+                    rest_u_image = rest_u_image.to(device="cuda", dtype=torch.float)
                 stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
             images = torch.unsqueeze(images, dim=1)
-            stress_image = torch.unsqueeze(stress_image, dim=1)
-            rest_image = torch.unsqueeze(rest_image, dim=1)
+            if GLOBALS.CONFIG["station"] == "SPECT":
+                stress_image = torch.unsqueeze(stress_image, dim=1)
+                rest_image = torch.unsqueeze(rest_image, dim=1)
+            elif GLOBALS.CONFIG["station"] == "DSPECT":
+                stress_s_image = torch.unsqueeze(stress_s_image, dim=1)
+                stress_u_image = torch.unsqueeze(stress_u_image, dim=1)
+                rest_s_image = torch.unsqueeze(rest_s_image, dim=1)
+                rest_u_image = torch.unsqueeze(rest_u_image, dim=1)
 
             #breakpoint()
             if GLOBALS.CONFIG["model"] == "BaselineModel":
@@ -187,13 +213,16 @@ def evaluate(test_loader, model, loss_function):
                 # outputs = model(stress_image, stat_features)
             elif GLOBALS.CONFIG["model"] == "ResNet3D":
                 outputs = model(images, stat_features)
+            elif GLOBALS.CONFIG["model"] == "TransferModel":
+                outputs = model(stress_s_image, stress_u_image, rest_s_image, rest_u_image, stat_features)
             else:
                 outputs = model(images)
 
-            loss = loss_function(outputs.squeeze(), labels.float())
+            #breakpoint()
+            loss = loss_function(outputs.squeeze(-1), labels.float())
             #loss = loss_function(outputs, labels)
             #breakpoint()
-            predictions = torch.where(outputs > 0.5, 1, 0).squeeze()
+            predictions = torch.where(outputs > 0.5, 1, 0).squeeze(-1)
             #predictions = torch.argmax(outputs, 1)
             #breakpoint()
             accuracy = get_accuracy(predictions.cpu().numpy(), labels.cpu().numpy())
@@ -230,6 +259,7 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
     #loss_function = torch.nn.CrossEntropyLoss()
     #breakpoint()
     #loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(weights).cuda())
+    max_f1 = 0
     train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list = [], [], [], []
     train_stats = {}
     for epoch in range(0, num_epochs, 1):
@@ -243,8 +273,15 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             # breakpoint()
             model.train()
             images = sample["image"]
-            stress_image = sample["stress_image"]
-            rest_image = sample["rest_image"]
+            if GLOBALS.CONFIG["station"] == "SPECT":
+                stress_image = sample["stress_image"]
+                rest_image = sample["rest_image"]
+            elif GLOBALS.CONFIG["station"] == "DSPECT":
+                stress_s_image = sample["stress_s_image"]
+                stress_u_image = sample["stress_u_image"]
+                rest_s_image = sample["rest_s_image"]
+                rest_u_image = sample["rest_u_image"]
+
             stat_features = sample["stat_features"]
             labels = sample["impression"]
             image_list = sample["image_list"]
@@ -261,16 +298,29 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
                     image_list[i] = image_list[i].to(device="cuda", dtype=torch.float32)
                     image_list[i] = torch.unsqueeze(image_list[i], dim=1)
                 images = images.to(device="cuda", dtype=torch.float)
-                stress_image = stress_image.to(device="cuda", dtype=torch.float)
-                rest_image = rest_image.to(device="cuda", dtype=torch.float)
+                if GLOBALS.CONFIG["station"] == "SPECT":
+                    stress_image = stress_image.to(device="cuda", dtype=torch.float)
+                    rest_image = rest_image.to(device="cuda", dtype=torch.float)
+                elif GLOBALS.CONFIG["station"] == "DSPECT":
+                    stress_s_image = stress_s_image.to(device="cuda", dtype=torch.float)
+                    stress_u_image = stress_u_image.to(device="cuda", dtype=torch.float)
+                    rest_s_image = rest_s_image.to(device="cuda", dtype=torch.float)
+                    rest_u_image = rest_u_image.to(device="cuda", dtype=torch.float)
                 stat_features = stat_features.to(device="cuda", dtype=torch.float)
                 labels = labels.cuda()
 
             #breakpoint()
             # Forward propagation
             images = torch.unsqueeze(images, dim=1)
-            stress_image = torch.unsqueeze(stress_image, dim=1)
-            rest_image = torch.unsqueeze(rest_image, dim=1)
+
+            if GLOBALS.CONFIG["station"] == "SPECT":
+                stress_image = torch.unsqueeze(stress_image, dim=1)
+                rest_image = torch.unsqueeze(rest_image, dim=1)
+            elif GLOBALS.CONFIG["station"] == "DSPECT":
+                stress_s_image = torch.unsqueeze(stress_s_image, dim=1)
+                stress_u_image = torch.unsqueeze(stress_u_image, dim=1)
+                rest_s_image = torch.unsqueeze(rest_s_image, dim=1)
+                rest_u_image = torch.unsqueeze(rest_u_image, dim=1)
 
             #breakpoint()
             if GLOBALS.CONFIG["model"] == "BaselineModel":
@@ -278,8 +328,13 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
                 #outputs = model(stress_image, stat_features)
             elif GLOBALS.CONFIG["model"] == "ResNet3D":
                 outputs = model(images, stat_features)
+            elif GLOBALS.CONFIG["model"] == "TransferModel":
+                outputs = model(stress_s_image, stress_u_image, rest_s_image, rest_u_image, stat_features)
             else:
                 outputs = model(images)
+
+            #breakpoint()
+
             #breakpoint()
             #breakpoint()
             #breakpoint()
@@ -333,6 +388,14 @@ def train(model, optimizer, loss_function, train_loader, test_loader, num_epochs
             "predictions_list": predictions_list,
             "labels_list": labels_list
         }
+
+        # Early stopping
+        if f1_score(labels_list, predictions_list) > max_f1:
+            best_model = copy.deepcopy(model.state_dict())
+            max_f1 = f1_score(labels_list, predictions_list)
+            print(f"Updating Model with Best F1 Score: {max_f1}")
+            data_analysis.generate_output.generate_output_files(train_stats, best_model, out_path)
+
         torch.save(train_stats, os.path.join(out_path, 'train_stats.pkl'))
 
-    return train_stats
+    return train_stats, best_model

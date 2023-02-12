@@ -21,14 +21,27 @@ class MPIDataset(Dataset):
         study_id = self.labels.iloc[idx]["Study_ID"]
         sample_input = self.inputs[str(study_id)]
 
-        sample = {
-            "image": sample_input["series_images"],
-            "stress_image": sample_input["stress_image"],
-            "rest_image": sample_input["rest_image"],
-            "image_list": sample_input["image_list"],
-            "stat_features": self.inputs_statistical.loc[int(study_id)].values,
-            "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0]
-        }
+        if GLOBALS.CONFIG["station"]=="SPECT":
+            sample = {
+                "image": sample_input["series_images"],     #stacked images
+                "stress_image": sample_input["stress_image"],
+                "rest_image": sample_input["rest_image"],
+                "image_list": sample_input["image_list"],
+                "stat_features": self.inputs_statistical.loc[int(study_id)].values,
+                "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0]
+            }
+
+        elif GLOBALS.CONFIG["station"]=="DSPECT":
+            sample = {
+                "image": sample_input["series_images"],  # stacked images
+                "stress_s_image": sample_input["stress_s_image"],
+                "stress_u_image": sample_input["stress_u_image"],
+                "rest_s_image": sample_input["rest_s_image"],
+                "rest_u_image": sample_input["rest_u_image"],
+                "image_list": sample_input["image_list"],
+                "stat_features": self.inputs_statistical.loc[int(study_id)].values,
+                "impression": self.labels.loc[self.labels['Study_ID'] == int(study_id)]["Impression"].iloc[0]
+            }
 
         if self.transform:
             # breakpoint()
@@ -69,13 +82,21 @@ class MPIDataset(Dataset):
             sample["image"] = np.transpose(sample["image"], (1, 2, 0))
             sample["image"] = self.transform(sample["image"])
 
-            sample["stress_image"] = np.transpose(sample["stress_image"], (1, 2, 0))
-            sample["stress_image"] = self.transform(sample["stress_image"])
-            #sample["stress_image"] = torch.permute(sample["stress_image"], (1, 2, 0))
+            if GLOBALS.CONFIG["station"] == "SPECT":
+                sample["stress_image"] = np.transpose(sample["stress_image"], (1, 2, 0))
+                sample["stress_image"] = self.transform(sample["stress_image"])
+                sample["rest_image"] = np.transpose(sample["rest_image"], (1, 2, 0))
+                sample["rest_image"] = self.transform(sample["rest_image"])
+            elif GLOBALS.CONFIG["station"] == "DSPECT":
+                sample["stress_s_image"] = np.transpose(sample["stress_s_image"], (1, 2, 0))
+                sample["stress_s_image"] = self.transform(sample["stress_s_image"])
+                sample["rest_s_image"] = np.transpose(sample["rest_s_image"], (1, 2, 0))
+                sample["rest_s_image"] = self.transform(sample["rest_s_image"])
 
-            sample["rest_image"] = np.transpose(sample["rest_image"], (1, 2, 0))
-            sample["rest_image"] = self.transform(sample["rest_image"])
-            #sample["rest_image"] = torch.permute(sample["rest_image"], (1, 2, 0))
+                sample["stress_u_image"] = np.transpose(sample["stress_u_image"], (1, 2, 0))
+                sample["stress_u_image"] = self.transform(sample["stress_u_image"])
+                sample["rest_u_image"] = np.transpose(sample["rest_u_image"], (1, 2, 0))
+                sample["rest_u_image"] = self.transform(sample["rest_u_image"])
 
             # # breakpoint()
             # import matplotlib.pyplot as plt
