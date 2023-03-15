@@ -25,6 +25,7 @@ def load_my_state_dict(own_state, loaded_state):
             param = param.data
         own_state[name].copy_(param)
 
+
 if __name__ == "__main__":
     torch.manual_seed(77)
     np.random.seed(77)
@@ -46,11 +47,32 @@ if __name__ == "__main__":
         load_my_state_dict(model.state_dict(), torch.load('train_output/model.pth'))
         # model.load_state_dict(torch.load('train_output/model.pth'))
         # model.module.fc1 = torch.nn.Linear(in_features=1024, out_features=128, bias=True)
-        for name, param in model.named_parameters():
-            if "resnet" in name:
-                param.requires_grad = False
 
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=GLOBALS.CONFIG["learning_rate"], weight_decay=GLOBALS.CONFIG["weight_decay"])
+        def freeze_resnet(model):
+            for name, param in model.named_parameters():
+                if "resnet" in name:
+                    param.requires_grad = False
+
+        # freeze_resnet(model)
+        # optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=GLOBALS.CONFIG["learning_rate"], weight_decay=GLOBALS.CONFIG["weight_decay"])
+
+        # use learning rate  of 0.0001 for resnet parameters and 0.001 for the rest
+        def get_lr_params(model):
+            a, b = [], []
+            for name, param in model.named_parameters():
+                if "resnet" in name:
+                    a.append(param)
+                else:
+                    b.append(param)
+            return a, b
+
+
+        lr_params = get_lr_params(model)
+        params_dict = [{'params': lr_params[0], 'lr': 0.0001},
+                       {'params': lr_params[1], 'lr': 0.001}]
+        optimizer = torch.optim.Adam(params_dict, lr=GLOBALS.CONFIG["learning_rate"],
+                                     weight_decay=GLOBALS.CONFIG["weight_decay"])
+
         model = network.to('cuda')
         model = torch.nn.DataParallel(model)
 
@@ -58,7 +80,7 @@ if __name__ == "__main__":
                                     GLOBALS.CONFIG["num_epochs"],
                                     args.output, scheduler, weights)
 
-    #print('~~Training Complete. Generating Output Files~~')
-    #generate_output_files(train_stats, best_model, args.output)
+    # print('~~Training Complete. Generating Output Files~~')
+    # generate_output_files(train_stats, best_model, args.output)
 
     print('Finished.')
