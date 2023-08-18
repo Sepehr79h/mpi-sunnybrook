@@ -66,6 +66,44 @@ def save_dicom_store(dicom_path, station_data_path, station_name, series_descrip
     print("Dicom data saved for station: {}. Time taken: {:.2f} s".format(station_name, time_end - time_start))
 
 
+def get_study_counts(station_data_dict, station_info):
+    result = {}  # This dictionary will store the DataFrames for each station
+
+    for station_name, desired_image_patterns in station_info.items():
+        # Get all unique study_ids for this station from the station_data_dict
+        all_studies = list(station_data_dict[station_name].keys())
+
+        # Initialize DataFrame for this station with zeros
+        df = pd.DataFrame(0, index=all_studies, columns=desired_image_patterns)
+
+        raw_data = station_data_dict[station_name]
+
+        for study_id, study_data in raw_data.items():
+            images = study_data["series_images"]
+
+            for pattern in desired_image_patterns:
+                matches = re.findall(pattern, "".join(images.keys()))
+                df.at[study_id, pattern] += len(matches)
+
+        result[station_name] = df
+
+    for station in result:
+        print(f"-------------STATION:{station}----------------")
+        df = result[station]
+        print("~Full Dataframe~")
+        print(df)
+        print("~Number of images for each series description~")
+        print(df.sum())
+        filtered_df_zeroes = df[df.eq(0).any(axis=1)]
+        print("~All excluded studies~, Amount:", len(filtered_df_zeroes))
+        print(filtered_df_zeroes)
+        filtered_df_gt = df[df.gt(1).any(axis=1)]
+        print("~All studies with more than one of a given series description~, Amount:", len(filtered_df_gt))
+        print(filtered_df_gt)
+
+    breakpoint()
+    return result
+
 def get_max_image_frames(station_data_dict, station_info):
     """
     Description: This method returns the max image frames, height, and width across all stations for each series description
@@ -278,6 +316,7 @@ def process_data(station_data_dict, labels, station_info):
     labels.loc[labels['Impression'] == 4, 'Impression'] = 3
 
     #----------------------------------------
+    get_study_counts(station_data_dict, station_info)
     max_image_frames, max_image_width, max_image_height = get_max_image_frames(station_data_dict, station_info)
     min_image_frames, min_image_width, min_image_height = get_min_image_frames(station_data_dict, station_info)
     print("Max image frames, width, height (before cleaning): ", max_image_frames, max_image_width, max_image_height)
@@ -396,19 +435,25 @@ def process_data(station_data_dict, labels, station_info):
     #----------------------------------------
     df_categorical_raw = df_stat_features[categorical_features]
     df_numerical_raw = df_stat_features[numerical_features]
+
     categorical_value_counts = {}
+
     # Get counts of unique values for each column in the raw categorical data DataFrame
     for col in categorical_features:
         value_counts = df_categorical_raw[col].value_counts()
         categorical_value_counts[col] = value_counts
-    # Get mean values for each column in the raw numerical data DataFrame
+
+    # Get mean and standard deviation values for each column in the raw numerical data DataFrame
     numerical_means = df_numerical_raw.mean()
+    numerical_stds = df_numerical_raw.std()
     print("Counts of unique values in categorical data:")
     for col, value_counts in categorical_value_counts.items():
         print(f"\nColumn: {col}")
         print(value_counts)
     print("\nMean values in numerical data:")
     print(numerical_means)
+    print("\nStandard Deviation values in numerical data:")
+    print(numerical_stds)
     #----------------------------------------
     df_categorical = get_df_categorical(df_stat_features[categorical_features])
     df_numerical = get_df_numerical(df_stat_features[numerical_features])
