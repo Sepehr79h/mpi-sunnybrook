@@ -100,6 +100,40 @@ def get_max_image_frames(station_data_dict, station_info):
 
     return max_image_frames, max_image_height, max_image_width
 
+def get_min_image_frames(station_data_dict, station_info):
+    """
+    Description: This method returns the max image frames, height, and width across all stations for each series description
+
+    :param station_data_dict: Data object containing data for all stations specified in the config
+    :param station_info: Names of all stations and their respective series descriptions specified in the config
+    :return: max image frames, height, and width for each series description across all stations
+    """
+    num_patterns = len(next(iter(station_info.values())))
+    min_image_frames, min_image_height, min_image_width = [999] * num_patterns, [999] * num_patterns, [999] * num_patterns
+    frame_size_list, height_list, width_list = [], [], []
+
+    for station_name in station_info.keys():
+
+        raw_data = station_data_dict[station_name]
+        desired_image_patterns = station_info[station_name]
+
+        for study_id in raw_data.keys():
+            images = raw_data[study_id]["series_images"]
+            for i in range(len(desired_image_patterns)):
+                match = re.search(desired_image_patterns[i], "".join(images.keys()))
+                if match:
+                    image_name = match.group()
+
+                    frame_size_list += [images[image_name].shape[0]]
+                    width_list += [images[image_name].shape[1]]
+                    height_list += [images[image_name].shape[2]]
+
+                    min_image_frames[i] = min(min_image_frames[i], images[image_name].shape[0])
+                    min_image_width[i] = min(min_image_width[i], images[image_name].shape[1])
+                    min_image_height[i] = min(min_image_height[i], images[image_name].shape[2])
+
+    return min_image_frames, min_image_height, min_image_width
+
 
 def clean_data(station_data_dict, labels, station_info):
     """
@@ -155,13 +189,13 @@ def clean_data(station_data_dict, labels, station_info):
 
             if not re.search(rf"{combined_pattern}", "".join(images.keys())):
                 filter_counts["count_both_rst_str"] += 1
-            elif not patient_age:
+            if not patient_age:
                 filter_counts["count_patient_age"] += 1
-            elif not patient_sex:
+            if not patient_sex:
                 filter_counts["count_patient_sex"] += 1
-            elif impression.empty or set() == set(GLOBALS.CONFIG["classes"]).intersection(set(impression.unique())):
+            if impression.empty or set() == set(GLOBALS.CONFIG["classes"]).intersection(set(impression.unique())):
                 filter_counts["count_impression"] += 1
-            elif not is_correct_type or df_patient.isnull().values.any():
+            if not is_correct_type or df_patient.isnull().values.any():
                 filter_counts["count_lvef_stress_type"] += 1
 
             # Clean Data
@@ -242,6 +276,13 @@ def process_data(station_data_dict, labels, station_info):
 
     # Convert all label 4 patients (high risk) to label 3
     labels.loc[labels['Impression'] == 4, 'Impression'] = 3
+
+    #----------------------------------------
+    max_image_frames, max_image_width, max_image_height = get_max_image_frames(station_data_dict, station_info)
+    min_image_frames, min_image_width, min_image_height = get_min_image_frames(station_data_dict, station_info)
+    print("Max image frames, width, height (before cleaning): ", max_image_frames, max_image_width, max_image_height)
+    print("Min image frames, width, height: ", min_image_frames, min_image_width, min_image_height)
+    # ----------------------------------------
     station_data_dict_clean = clean_data(station_data_dict, labels, station_info)
     max_image_frames, max_image_width, max_image_height = get_max_image_frames(station_data_dict_clean, station_info)
     frame_list = []
@@ -352,6 +393,23 @@ def process_data(station_data_dict, labels, station_info):
     numerical_features = GLOBALS.CONFIG["numerical_features"]
     categorical_features = GLOBALS.CONFIG["categorical_features"]
     print(f"Numerical features: {numerical_features}, Categorical Features: {categorical_features}")
+    #----------------------------------------
+    df_categorical_raw = df_stat_features[categorical_features]
+    df_numerical_raw = df_stat_features[numerical_features]
+    categorical_value_counts = {}
+    # Get counts of unique values for each column in the raw categorical data DataFrame
+    for col in categorical_features:
+        value_counts = df_categorical_raw[col].value_counts()
+        categorical_value_counts[col] = value_counts
+    # Get mean values for each column in the raw numerical data DataFrame
+    numerical_means = df_numerical_raw.mean()
+    print("Counts of unique values in categorical data:")
+    for col, value_counts in categorical_value_counts.items():
+        print(f"\nColumn: {col}")
+        print(value_counts)
+    print("\nMean values in numerical data:")
+    print(numerical_means)
+    #----------------------------------------
     df_categorical = get_df_categorical(df_stat_features[categorical_features])
     df_numerical = get_df_numerical(df_stat_features[numerical_features])
     df_stat_features = pd.concat([df_stat_features["Study_ID"], df_categorical, df_numerical], axis=1)

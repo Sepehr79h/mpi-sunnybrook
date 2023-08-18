@@ -16,7 +16,7 @@ width_crop_size: 20 #18 #20
 height_crop_size: 20 #18 #20
 split_type: "balanced"
 model: "TransferModel" #"BaselineModel"
-station: DSPECT #DSPECT #"SPECT"
+station: DSPECT #DSPECT #DSPECT #"SPECT"
 
 categorical_features: ["patient_sex", "Stress Type"]
 numerical_features: ["Post-Stress LVEF", "Resting LVEF", "patient_age"]
